@@ -1,9 +1,9 @@
 """
 cli.py — Interactive terminal UI for CoA Architect.
 
-CoAArchitectCLI orchestrates the full user session using:
-  - rich   for formatted tables, panels, and styled output
-  - questionary for arrow-key select menus and validated text prompts
+CoAArchitectCLI orchestrates the full user session using standard
+print() and input() calls, compatible with any Python environment
+including Spyder 6 and IPython consoles.
 
 Session flow:
   1. Welcome screen
@@ -21,13 +21,7 @@ Session flow:
 import sys
 from typing import Optional
 
-import questionary
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich import box
-
-from .models import AccountHierarchy, NewAccountProposal
+from .models import Account, AccountHierarchy, NewAccountProposal
 from .loader import CoALoader
 from .analyzer import CoAAnalyzer
 from .placer import AccountPlacer
@@ -36,7 +30,6 @@ from .validator import AccountValidator
 from .exporter import CoAExporter
 
 VERSION = "1.0"
-console = Console()
 
 
 class CoAArchitectCLI:
@@ -57,6 +50,59 @@ class CoAArchitectCLI:
         self._exporter = CoAExporter()
 
     # ------------------------------------------------------------------
+    # Private UI helpers
+    # ------------------------------------------------------------------
+
+    def _pick(self, prompt: str, choices: list, allow_cancel: bool = True):
+        """
+        Displays a numbered menu and returns the value of the chosen item.
+
+        choices: list of (label, value) tuples.
+        If allow_cancel is True, a cancel option returning None is appended.
+        Loops until the user enters a valid number.
+        """
+        # Build the full list, optionally adding a cancel entry at the end
+        full_choices = list(choices)
+        if allow_cancel:
+            full_choices.append(("(cancel)", None))
+
+        # Print the numbered menu
+        print()
+        for i, (label, _) in enumerate(full_choices, start=1):
+            print(f"  {i}. {label}")
+
+        # Keep asking until a valid number is entered
+        while True:
+            raw = input(f"{prompt} [1-{len(full_choices)}]: ").strip()
+            try:
+                index = int(raw)
+                if 1 <= index <= len(full_choices):
+                    return full_choices[index - 1][1]
+                else:
+                    print(f"  Please enter a number between 1 and {len(full_choices)}.")
+            except ValueError:
+                print("  Please enter a number.")
+
+    def _ask_yes_no(self, prompt: str, default: bool = True) -> bool:
+        """
+        Prints a yes/no prompt and returns True for yes, False for no.
+
+        default=True  → displays [Y/n]
+        default=False → displays [y/N]
+        Pressing Enter without input accepts the default.
+        """
+        hint = "[Y/n]" if default else "[y/N]"
+        while True:
+            raw = input(f"{prompt} {hint}: ").strip().lower()
+            if raw == "":
+                return default
+            if raw in ("y", "yes"):
+                return True
+            if raw in ("n", "no"):
+                return False
+            print("  Please enter y or n.")
+
+    # ------------------------------------------------------------------
     # Main Entry Point
     # ------------------------------------------------------------------
 
@@ -69,30 +115,25 @@ class CoAArchitectCLI:
         while True:
             proposal = self._add_account_session()
             if proposal is None:
-                break  # User typed 'quit'
+                break  # User typed 'quit' or cancelled
 
-            add_another = questionary.confirm(
-                "Add another account?", default=False
-            ).ask()
+            add_another = self._ask_yes_no("Add another account?", default=False)
             if not add_another:
                 break
 
-        console.print("\n[bold green]Session complete. Goodbye![/bold green]")
+        print("\nSession complete. Goodbye!")
 
     # ------------------------------------------------------------------
     # Step 1: Welcome Screen
     # ------------------------------------------------------------------
 
     def _show_welcome(self) -> None:
-        """Displays the app name and version in a rich panel."""
-        console.print(
-            Panel(
-                f"[bold cyan]CoA Architect v{VERSION}[/bold cyan]\n"
-                "[dim]Safe Chart of Accounts extension tool for Silver Dolphins LLP[/dim]",
-                box=box.DOUBLE,
-                expand=False,
-            )
-        )
+        """Displays the app name and version as a plain-text banner."""
+        print("=" * 55)
+        print(f"  CoA Architect v{VERSION}")
+        print("  Safe Chart of Accounts extension tool")
+        print("  Silver Dolphins LLP")
+        print("=" * 55)
 
     # ------------------------------------------------------------------
     # Step 2: Load + Analyze
@@ -105,72 +146,63 @@ class CoAArchitectCLI:
         """
         # Prompt for CoA file path if not provided via CLI arg
         if not self.file_path:
-            self.file_path = questionary.path(
-                "CoA Excel file path:",
-                only_directories=False,
-            ).ask()
+            self.file_path = input("\nCoA Excel file path: ").strip()
             if not self.file_path:
-                console.print("[red]No file path provided. Exiting.[/red]")
+                print("No file path provided. Exiting.")
                 sys.exit(1)
 
         # Prompt for optional external FERC reference file
         if self.ferc_ref_path is None:
-            load_ferc = questionary.confirm(
+            load_ferc = self._ask_yes_no(
                 "Load an external FERC reference file? (optional)", default=False
-            ).ask()
+            )
             if load_ferc:
-                self.ferc_ref_path = questionary.path(
-                    "External FERC file path (CSV or Excel):"
-                ).ask()
+                self.ferc_ref_path = input(
+                    "External FERC file path (CSV or Excel): "
+                ).strip()
 
-        console.print(f"\n[dim]CoA file:   {self.file_path}[/dim]")
-        console.print(f"[dim]FERC ref:   {self.ferc_ref_path or '(none)'}[/dim]\n")
+        print(f"\nCoA file:   {self.file_path}")
+        print(f"FERC ref:   {self.ferc_ref_path or '(none)'}\n")
 
         # Load the workbook
-        with console.status("Loading workbook..."):
-            accounts, reference_data, column_mapping, workbook = (
-                self._loader.load_chart_of_accounts(self.file_path)
-            )
-            self.workbook = workbook
+        print("Loading workbook...")
+        accounts, reference_data, column_mapping, workbook = (
+            self._loader.load_chart_of_accounts(self.file_path)
+        )
+        self.workbook = workbook
 
         # Merge external FERC codes if provided
         if self.ferc_ref_path:
-            with console.status("Loading external FERC codes..."):
-                try:
-                    external_codes = self._loader.load_external_ferc_file(self.ferc_ref_path)
-                    # CoA-embedded codes take precedence
-                    new_external = set()
-                    for code, desc in external_codes.items():
-                        if code not in reference_data.ferc_codes:
-                            reference_data.ferc_codes[code] = desc
-                            new_external.add(code)
-                    reference_data.external_ferc_codes = new_external
-                    console.print(
-                        f"[green]Loaded {len(new_external)} new FERC codes from external file.[/green]"
-                    )
-                except Exception as e:
-                    console.print(f"[yellow]Warning: Could not load external FERC file: {e}[/yellow]")
+            print("Loading external FERC codes...")
+            try:
+                external_codes = self._loader.load_external_ferc_file(self.ferc_ref_path)
+                # CoA-embedded codes take precedence over external file
+                new_external = set()
+                for code, desc in external_codes.items():
+                    if code not in reference_data.ferc_codes:
+                        reference_data.ferc_codes[code] = desc
+                        new_external.add(code)
+                reference_data.external_ferc_codes = new_external
+                print(f"Loaded {len(new_external)} new FERC codes from external file.")
+            except Exception as e:
+                print(f"Warning: Could not load external FERC file: {e}")
 
         # Build the hierarchy
-        with console.status("Analyzing hierarchy..."):
-            self.hierarchy = self._analyzer.analyze(
-                accounts, reference_data, column_mapping, self.file_path
-            )
+        print("Analyzing hierarchy...")
+        self.hierarchy = self._analyzer.analyze(
+            accounts, reference_data, column_mapping, self.file_path
+        )
 
-        # Show column mapping for confirmation
+        # Show column mapping for user confirmation
         self._show_column_mapping(column_mapping)
 
     def _show_column_mapping(self, column_mapping: dict) -> None:
-        """Displays the detected column mapping as a rich table."""
-        table = Table(title="Detected Column Mapping", box=box.SIMPLE)
-        table.add_column("Field", style="cyan")
-        table.add_column("Column", style="green")
-
+        """Displays the detected column mapping as an aligned plain-text table."""
+        print("\nDetected Column Mapping")
+        print("-" * 35)
         for field, col_letter in sorted(column_mapping.items()):
-            table.add_row(field, col_letter or "(not found)")
-
-        console.print(table)
-        console.print()
+            print(f"  {field:<25} {col_letter or '(not found)'}")
+        print()
 
     # ------------------------------------------------------------------
     # Step 3: Hierarchy Summary
@@ -187,31 +219,31 @@ class CoAArchitectCLI:
             f"L{level}×{count}" for level, count in sorted(level_counts.items())
         )
 
-        console.print(
-            f"[bold]Loaded {len(accounts)} accounts across "
-            f"{len([a for a in accounts if a.line_of_detail == 1])} sections.[/bold]"
+        print(
+            f"Loaded {len(accounts)} accounts across "
+            f"{len([a for a in accounts if a.line_of_detail == 1])} sections."
         )
-        console.print(f"Hierarchy: {level_summary}\n")
+        print(f"Hierarchy: {level_summary}\n")
 
         # Section breakdown table
-        table = Table(title="Sections", box=box.SIMPLE)
-        table.add_column("Account #", style="cyan")
-        table.add_column("Description", style="white")
-        table.add_column("Children", style="green")
+        print("Sections")
+        print(f"  {'Account #':<12} {'Description':<40} Children")
+        print("-" * 65)
 
         level1 = [a for a in accounts if a.line_of_detail == 1]
         for section in sorted(level1, key=lambda a: a.account_number):
-            child_count = sum(1 for a in accounts if a.parent and
-                              self._find_level1_ancestor(a) and
-                              self._find_level1_ancestor(a).account_number == section.account_number)
-            table.add_row(
-                str(section.account_number),
-                section.account_description,
-                str(child_count),
+            child_count = sum(
+                1 for a in accounts
+                if a.parent
+                and self._find_level1_ancestor(a)
+                and self._find_level1_ancestor(a).account_number == section.account_number
             )
-
-        console.print(table)
-        console.print()
+            print(
+                f"  {str(section.account_number):<12} "
+                f"{section.account_description:<40} "
+                f"{child_count}"
+            )
+        print()
 
     # ------------------------------------------------------------------
     # Step 4: Add Account Session (one account per loop iteration)
@@ -222,15 +254,15 @@ class CoAArchitectCLI:
         Runs one complete account-addition interaction.
         Returns the completed proposal on success, or None if the user quits.
         """
-        # a. Describe the new account
-        description = questionary.text(
-            "Describe the new account in plain English (or type 'quit' to exit):"
-        ).ask()
+        # a. Describe the new account in plain English
+        description = input(
+            "\nDescribe the new account in plain English (or type 'quit' to exit): "
+        ).strip()
 
-        if not description or description.strip().lower() == "quit":
+        if not description or description.lower() == "quit":
             return None
 
-        proposal = NewAccountProposal(account_description=description.strip())
+        proposal = NewAccountProposal(account_description=description)
 
         # b. Select parent account
         parent = self._select_parent(description, proposal)
@@ -247,32 +279,29 @@ class CoAArchitectCLI:
             return None
         proposal.account_number = number
 
-        # d. Auto-suggest all fields
-        with console.status("Generating suggestions..."):
-            self._suggester.suggest_all(proposal, self.hierarchy)
+        # d. Auto-suggest all fields, then confirm each one
+        print("Generating suggestions...")
+        self._suggester.suggest_all(proposal, self.hierarchy)
 
-        # Step through each field for confirmation
         proposal = self._confirm_fields(proposal)
 
         # e. Show final summary
         self._show_final_proposal(proposal)
 
-        # f. Confirm and export
-        confirmed = questionary.confirm(
-            "Add to CoA and save?", default=True
-        ).ask()
+        # f. Confirm and export to file
+        confirmed = self._ask_yes_no("Add to CoA and save?", default=True)
 
         if confirmed:
-            with console.status("Saving..."):
-                saved_path = self._exporter.export(proposal, self.hierarchy, self.workbook)
-            console.print(
-                f"\n[bold green]Account {proposal.account_number} — "
-                f"'{proposal.account_description}' added. File saved.[/bold green]"
+            print("Saving...")
+            saved_path = self._exporter.export(proposal, self.hierarchy, self.workbook)
+            print(
+                f"\nAccount {proposal.account_number} — "
+                f"'{proposal.account_description}' added. File saved."
             )
-            console.print(f"[dim]Saved to: {saved_path}[/dim]\n")
+            print(f"Saved to: {saved_path}\n")
             return proposal
         else:
-            console.print("[yellow]Cancelled — file not changed.[/yellow]\n")
+            print("Cancelled — file not changed.\n")
             return None
 
     def _select_parent(
@@ -285,54 +314,43 @@ class CoAArchitectCLI:
         scored = self._placer.score_parent_candidates(description, self.hierarchy)
 
         if not scored:
-            console.print("[red]No eligible parent accounts found.[/red]")
+            print("No eligible parent accounts found.")
             return None
 
-        # Prepare up to 5 choices for questionary.select
+        # Build choices from the top 5 scored candidates
         top5 = scored[:5]
 
+        print("\nTop parent candidates:")
         choices = []
         for score, account in top5:
             ancestry = account.ancestry_path()
-            label = f"[{score:.0f}%] {account.account_number} — {account.account_description}"
-            choices.append(
-                questionary.Choice(
-                    title=f"{label}\n      {ancestry}",
-                    value=account,
-                )
+            label = (
+                f"[{score:.0f}%] {account.account_number} — "
+                f"{account.account_description}\n"
+                f"         {ancestry}"
             )
+            choices.append((label, account))
 
-        choices.append(questionary.Choice(title="(show more / search manually)", value="more"))
-        choices.append(questionary.Choice(title="(cancel)", value=None))
+        # Let the user request the full list if none of the top 5 fit
+        choices.append(("(show more / search manually)", "more"))
 
-        console.print("\n[bold]Top parent candidates:[/bold]")
-        selected = questionary.select(
-            "Select parent account:",
-            choices=choices,
-        ).ask()
+        selected = self._pick("Select parent account", choices, allow_cancel=True)
 
         if selected == "more":
-            # Show all candidates
             return self._select_parent_from_all(scored)
         return selected
 
     def _select_parent_from_all(self, scored: list) -> Optional[Account]:
-        """Shows all candidates when user requests 'show more'."""
+        """Shows all scored candidates when user requests 'show more'."""
         choices = [
-            questionary.Choice(
-                title=(
-                    f"[{score:.0f}%] {account.account_number} — "
-                    f"{account.account_description} | {account.ancestry_path()}"
-                ),
-                value=account,
+            (
+                f"[{score:.0f}%] {account.account_number} — "
+                f"{account.account_description} | {account.ancestry_path()}",
+                account,
             )
             for score, account in scored
         ]
-        choices.append(questionary.Choice(title="(cancel)", value=None))
-
-        return questionary.select(
-            "Select parent account:", choices=choices
-        ).ask()
+        return self._pick("Select parent account", choices, allow_cancel=True)
 
     def _select_account_number(
         self, parent: Account, proposal: NewAccountProposal
@@ -344,7 +362,7 @@ class CoAArchitectCLI:
         """
         candidates = self._placer.find_available_numbers_in_range(parent, self.hierarchy)
 
-        # Find the parent's range for display
+        # Find the parent's range for display context
         parent_range = next(
             (r for r in self.hierarchy.ranges
              if r.owner_account.account_number == parent.account_number),
@@ -359,24 +377,18 @@ class CoAArchitectCLI:
             if parent.children else parent.account_number
         )
 
-        console.print(
-            f"\n[bold]Suggested numbers[/bold] "
+        print(
+            f"\nSuggested numbers "
             f"(range {range_str}, last sibling: {last_child}):"
         )
 
         choices = [
-            questionary.Choice(
-                title=f"{number}  ({rationale})",
-                value=number,
-            )
+            (f"{number}  ({rationale})", number)
             for number, rationale in candidates
         ]
-        choices.append(questionary.Choice(title="Enter a custom number", value="custom"))
-        choices.append(questionary.Choice(title="(cancel)", value=None))
+        choices.append(("Enter a custom number", "custom"))
 
-        selected = questionary.select(
-            "Select account number:", choices=choices
-        ).ask()
+        selected = self._pick("Select account number", choices, allow_cancel=True)
 
         if selected == "custom":
             return self._prompt_custom_number()
@@ -384,24 +396,21 @@ class CoAArchitectCLI:
 
     def _prompt_custom_number(self) -> Optional[int]:
         """Prompts the user to enter a custom account number with validation."""
-        def validate_number(text: str) -> bool | str:
+        while True:
+            raw = input("Enter a 6-digit account number (or blank to cancel): ").strip()
+            if not raw:
+                return None
             try:
-                n = int(text.strip())
+                n = int(raw)
             except ValueError:
-                return "Please enter a 6-digit integer."
+                print("  Please enter a 6-digit integer.")
+                continue
+            # Validate against existing hierarchy rules
             ok, msg = self._validator.validate_account_number(n, self.hierarchy)
             if not ok:
-                return msg
-            return True
-
-        raw = questionary.text(
-            "Enter a 6-digit account number:",
-            validate=validate_number,
-        ).ask()
-
-        if raw is None:
-            return None
-        return int(raw.strip())
+                print(f"  {msg}")
+                continue
+            return n
 
     # ------------------------------------------------------------------
     # Step d: Field-by-field confirmation
@@ -410,9 +419,9 @@ class CoAArchitectCLI:
     def _confirm_fields(self, proposal: NewAccountProposal) -> NewAccountProposal:
         """
         Steps the user through each suggested field value.
-        For each field, the user can: Accept / Modify / Skip.
+        For each field, the user can: Accept / Modify / (Clear if allowed).
         """
-        console.print("\n[bold]Confirming fields:[/bold]")
+        print("\nConfirming fields:")
 
         # Description — always prompt for review
         proposal.account_description = self._confirm_text_field(
@@ -435,7 +444,7 @@ class CoAArchitectCLI:
             proposal.reasoning.get("business_unit", ""),
         )
 
-        # BU Type
+        # BU Type — fixed choices only
         proposal.bu_type = self._confirm_choice_field(
             "BU Type",
             proposal.bu_type,
@@ -443,7 +452,7 @@ class CoAArchitectCLI:
             proposal.reasoning.get("bu_type", ""),
         )
 
-        # Posting Edit — usually blank for Level 5
+        # Posting Edit — usually blank for Level-5 posting accounts
         proposal.posting_edit = self._confirm_text_field(
             "Posting Edit",
             proposal.posting_edit,
@@ -451,14 +460,14 @@ class CoAArchitectCLI:
             allow_blank=True,
         )
 
-        # Line of Detail — fixed at 5 for posting accounts
-        console.print(
-            f"  [dim]Line of Detail: 5  "
-            f"({proposal.reasoning.get('line_of_detail', 'Posting account')})[/dim]"
+        # Line of Detail — always 5 for new posting accounts
+        print(
+            f"  Line of Detail: 5  "
+            f"({proposal.reasoning.get('line_of_detail', 'Posting account')})"
         )
         proposal.line_of_detail = 5
 
-        # FERC Code
+        # FERC Code — pick from suggestions or enter custom
         ferc_suggestions = self._suggester.suggest_ferc_code(proposal, self.hierarchy)
         proposal.ferc_code = self._confirm_code_field(
             "FERC Code",
@@ -468,19 +477,19 @@ class CoAArchitectCLI:
             self.hierarchy.reference_data.ferc_codes,
         )
 
-        # Asset Life
+        # Asset Life — pick from suggestions or enter custom
         life_suggestions = self._suggester.suggest_asset_life(proposal, self.hierarchy)
         life_choices = [(v, e) for v, e in life_suggestions]
         proposal.asset_life = self._confirm_code_field(
             "Asset Life",
             proposal.asset_life,
-            [(v, 0, e) for v, e in life_choices],  # fake confidence pct=0
+            [(v, 0, e) for v, e in life_choices],  # confidence pct not used here
             proposal.reasoning.get("asset_life", ""),
             self.hierarchy.reference_data.asset_life_codes,
             allow_blank=True,
         )
 
-        # Book-Tax Difference
+        # Book-Tax Difference — often blank
         proposal.book_tax_difference = self._confirm_text_field(
             "Book-Tax Difference",
             proposal.book_tax_difference,
@@ -488,7 +497,7 @@ class CoAArchitectCLI:
             allow_blank=True,
         )
 
-        # Cash Flow Category
+        # Cash Flow Category — pick from suggestions or enter custom
         cf_suggestions = self._suggester.suggest_cash_flow_category(proposal, self.hierarchy)
         proposal.cash_flow_category = self._confirm_code_field(
             "Cash Flow Category",
@@ -513,30 +522,29 @@ class CoAArchitectCLI:
         accept it, modify it, or (if allow_blank) clear it.
         """
         display_value = current_value if current_value else "(blank)"
-        console.print(
-            f"\n  [cyan]{field_label}:[/cyan] {display_value}\n"
-            f"  [dim]{reasoning}[/dim]"
-        )
+        print(f"\n  {field_label}: {display_value}")
+        if reasoning:
+            print(f"  {reasoning}")
 
-        action = questionary.select(
-            f"  {field_label}:",
-            choices=[
-                questionary.Choice("Accept", value="accept"),
-                questionary.Choice("Modify", value="modify"),
-                *(
-                    [questionary.Choice("Clear (leave blank)", value="clear")]
-                    if allow_blank else []
-                ),
-            ],
-        ).ask()
+        # Build the action choices based on whether blanking is allowed
+        choices = [
+            ("Accept", "accept"),
+            ("Modify", "modify"),
+        ]
+        if allow_blank:
+            choices.append(("Clear (leave blank)", "clear"))
+
+        action = self._pick(f"  {field_label}", choices, allow_cancel=False)
 
         if action == "modify":
-            new_val = questionary.text(
-                f"  Enter new {field_label}:", default=current_value or ""
-            ).ask()
-            return new_val.strip() if new_val else current_value
+            default_display = current_value or ""
+            new_val = input(
+                f"  Enter new {field_label} [{default_display}]: "
+            ).strip()
+            return new_val if new_val else current_value
         elif action == "clear":
             return ""
+        # "accept" — return unchanged
         return current_value
 
     def _confirm_choice_field(
@@ -546,19 +554,19 @@ class CoAArchitectCLI:
         options: list,
         reasoning: str,
     ) -> Optional[str]:
-        """Shows current suggestion and lets user pick from a fixed list."""
+        """Shows current suggestion and lets user pick from a fixed list of options."""
         display_value = current_value if current_value else "(blank)"
-        console.print(
-            f"\n  [cyan]{field_label}:[/cyan] {display_value}\n"
-            f"  [dim]{reasoning}[/dim]"
-        )
+        print(f"\n  {field_label}: {display_value}")
+        if reasoning:
+            print(f"  {reasoning}")
 
-        choices = [questionary.Choice(f"Accept ({current_value})", value=current_value)]
+        # The current suggestion appears first as the default accept option
+        choices = [(f"Accept ({current_value})", current_value)]
         for opt in options:
             if opt != current_value:
-                choices.append(questionary.Choice(opt, value=opt))
+                choices.append((opt, opt))
 
-        return questionary.select(f"  {field_label}:", choices=choices).ask()
+        return self._pick(f"  {field_label}", choices, allow_cancel=False)
 
     def _confirm_code_field(
         self,
@@ -571,16 +579,17 @@ class CoAArchitectCLI:
     ) -> Optional[str]:
         """
         Shows the top suggestion and presents alternatives for code fields
-        like FERC, Asset Life, Cash Flow Category.
+        like FERC Code, Asset Life, and Cash Flow Category.
         """
         display_value = current_value if current_value else "(blank)"
-        console.print(
-            f"\n  [cyan]{field_label}:[/cyan] {display_value}\n"
-            f"  [dim]{reasoning}[/dim]"
-        )
+        print(f"\n  {field_label}: {display_value}")
+        if reasoning:
+            print(f"  {reasoning}")
 
-        choices = [questionary.Choice(f"Accept ({display_value})", value=current_value)]
+        # Start with the current accepted value
+        choices = [(f"Accept ({display_value})", current_value)]
 
+        # Add up to 4 alternative suggestions with descriptions and confidence
         for code, conf, expl in suggestions[:4]:
             desc = code_lookup.get(str(code), "")
             label = f"{code}"
@@ -588,17 +597,17 @@ class CoAArchitectCLI:
                 label += f" — {desc}"
             if conf:
                 label += f" [{conf}%]"
-            choices.append(questionary.Choice(label, value=code))
+            choices.append((label, code))
 
         if allow_blank:
-            choices.append(questionary.Choice("(blank / skip)", value=""))
-        choices.append(questionary.Choice("Enter custom value", value="__custom__"))
+            choices.append(("(blank / skip)", ""))
+        choices.append(("Enter custom value", "__custom__"))
 
-        selected = questionary.select(f"  {field_label}:", choices=choices).ask()
+        selected = self._pick(f"  {field_label}", choices, allow_cancel=False)
 
         if selected == "__custom__":
-            custom = questionary.text(f"  Enter custom {field_label}:").ask()
-            return custom.strip() if custom else current_value
+            custom = input(f"  Enter custom {field_label}: ").strip()
+            return custom if custom else current_value
 
         return selected
 
@@ -607,17 +616,10 @@ class CoAArchitectCLI:
     # ------------------------------------------------------------------
 
     def _show_final_proposal(self, proposal: NewAccountProposal) -> None:
-        """Displays the complete proposal as a rich table with ancestry path."""
-        table = Table(
-            title=f"Account {proposal.account_number} — {proposal.account_description}",
-            box=box.ROUNDED,
-        )
-        table.add_column("Field", style="cyan", no_wrap=True)
-        table.add_column("Value", style="white")
-        table.add_column("Reasoning", style="dim")
+        """Displays the complete proposal as an aligned plain-text table with borders."""
 
         def ref_desc(lookup: dict, code: str) -> str:
-            """Appends reference description to a code if available."""
+            """Appends reference description to a code value if one exists."""
             if not code:
                 return "(blank)"
             desc = lookup.get(str(code), "")
@@ -637,21 +639,23 @@ class CoAArchitectCLI:
             ("Cash Flow", ref_desc(self.hierarchy.reference_data.cash_flow_codes, proposal.cash_flow_category or ""), proposal.reasoning.get("cash_flow_category", "")),
         ]
 
+        print("\n" + "=" * 70)
+        print(f"  Account {proposal.account_number} — {proposal.account_description}")
+        print("=" * 70)
+        print(f"  {'Field':<18} {'Value':<35} Reasoning")
+        print("-" * 70)
+
         for field, value, reason in rows:
-            table.add_row(field, value, reason[:60] + "..." if len(reason) > 60 else reason)
+            # Truncate long reasoning text so columns stay aligned
+            reason_display = reason[:35] + "..." if len(reason) > 35 else reason
+            print(f"  {field:<18} {value:<35} {reason_display}")
 
-        console.print(table)
+        print("=" * 70)
 
-        # Show ancestry path
+        # Show the full ancestry path so the user can verify placement
         if proposal.suggested_parent:
             ancestry = proposal.suggested_parent.ancestry_path()
-            console.print(
-                Panel(
-                    f"[dim]Placement:[/dim] {ancestry} > "
-                    f"[bold]{proposal.account_description}[/bold]",
-                    expand=False,
-                )
-            )
+            print(f"\n  Placement: {ancestry} > {proposal.account_description}")
 
     # ------------------------------------------------------------------
     # Private helpers

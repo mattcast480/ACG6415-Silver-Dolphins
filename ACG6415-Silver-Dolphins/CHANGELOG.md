@@ -4,6 +4,28 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.1a] — 2026-03-04
+
+### Changed
+
+- **`coa_architect/cli.py`** — Rewrote all UI code to use `print()` and `input()` only, removing `rich` and `questionary` dependencies. The CLI is now fully compatible with Spyder 6 and IPython consoles, which do not emulate the native Windows console required by those libraries. All menus now display as numbered lists; all prompts use standard `input()`.
+- **`main.py`** — Fixed argparse crash in Spyder: switched `parse_args()` to `parse_known_args()` so IPython kernel arguments (e.g. `-f kernel-xyz.json`) in `sys.argv` are silently ignored instead of causing an error.
+- **`requirements.txt`** — Removed `questionary>=2.0.1` and `rich>=13.0.0`; no longer required.
+
+---
+
+## [1.0a] — 2026-03-04
+
+### Added
+
+- **`setup_project.py`** — One-click dependency installer for teammates new to the terminal; installs all packages from `requirements.txt`, adds Spyder for a GUI IDE experience, and prints step-by-step CLI setup instructions.
+
+### Fixed
+
+- **`coa_architect/cli.py`** — Added `Account` to the `.models` import (was: `AccountHierarchy, NewAccountProposal`; now: `Account, AccountHierarchy, NewAccountProposal`). Resolved `NameError: name 'Account' is not defined` that crashed `main.py` on startup.
+
+---
+
 ## [1.0] — 2026-03-03
 
 ### Added

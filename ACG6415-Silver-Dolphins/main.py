@@ -56,7 +56,7 @@ def main() -> None:
     Parses command-line arguments and launches the interactive CLI session.
     """
     parser = build_arg_parser()
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     # Instantiate and run the CLI
     app = CoAArchitectCLI(

@@ -2,14 +2,6 @@
 # formulas when inserting new rows into the Chart of Accounts workbook.
 openpyxl>=3.1.0
 
-# Interactive terminal prompts: arrow-key selection menus, validated text
-# input, and yes/no confirmations used throughout the CLI session.
-questionary>=2.0.1
-
-# Formatted terminal output: styled panels, tables with column alignment,
-# and status spinners shown during file loading and analysis steps.
-rich>=13.0.0
-
 # Test runner for the unit test suite in the tests/ directory.
 # Run tests with: pytest tests/ -v
 pytest>=7.0.0
