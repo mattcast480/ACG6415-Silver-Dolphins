@@ -13,7 +13,7 @@ This repository is in early initialization — no source files have been committ
 ## Commands
 
 *(Add build, lint, and test commands here once the project is set up.)*
-- Remind user to commit to Git after significant features
+- After completing each major development milestone, ask the user: "Do you want to continue to the next task, or are you ending the session?" If the user indicates they are ending the session, remind them to commit all changes and push to GitHub, and suggest an appropriate version tag and commit message summarizing what was built during the session.
 - Maintain a CHANGELOG.md file
 - Present options and ask clarifying questions - do not automate all decisions
 - Use descriptive names for all functions and variables
