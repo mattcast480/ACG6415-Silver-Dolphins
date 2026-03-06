@@ -18,6 +18,8 @@ Session flow:
      f. "Add another?" prompt
 """
 
+import os
+import shutil
 import sys
 from typing import Optional
 
@@ -102,6 +104,53 @@ class CoAArchitectCLI:
                 return False
             print("  Please enter y or n.")
 
+    def _copy_and_name_modified_file(self, original_path: str) -> str:
+        """
+        Prompts the user for a name for the working copy of the CoA file,
+        validates that the name contains no illegal filename characters, copies
+        the original file to that name in the same directory, and returns the
+        full path to the copy.
+        """
+        # Characters that are illegal in Windows (and most OS) file names
+        INVALID_CHARS = {'\\', '/', ':', '*', '?', '"', '<', '>', '|'}
+
+        while True:
+            new_name = input(
+                "\nWhat would you like to name your modified Chart of Accounts?"
+                " (Do not include the file extension): "
+            ).strip()
+
+            if not new_name:
+                print("  Name cannot be empty. Please try again.")
+                continue
+
+            # Find any illegal characters the user typed
+            bad_chars = sorted(c for c in INVALID_CHARS if c in new_name)
+            if bad_chars:
+                bad_str = "  ".join(bad_chars)
+                print(f"  The following characters are not allowed in file names: {bad_str}")
+                print("  Please try again.")
+                continue
+
+            break  # Name is valid
+
+        # Build the destination path: same folder as original, new name, same extension
+        directory = os.path.dirname(original_path)
+        _, ext = os.path.splitext(original_path)
+        Modified_CoA_Path = os.path.join(directory, new_name + ext)  # Modified CoA Path
+
+        # Copy the original file — original is never touched again after this point
+        shutil.copy2(original_path, Modified_CoA_Path)
+        print(f"Working copy created: {Modified_CoA_Path}")
+
+        # Push into Spyder/IPython Variable Explorer so it is visible after the run
+        try:
+            get_ipython().user_ns["Modified_CoA_Path"] = Modified_CoA_Path
+        except (NameError, AttributeError):
+            pass  # Not running in IPython — skip silently
+
+        return Modified_CoA_Path
+
     # ------------------------------------------------------------------
     # Main Entry Point
     # ------------------------------------------------------------------
@@ -150,6 +199,17 @@ class CoAArchitectCLI:
             if not self.file_path:
                 print("No file path provided. Exiting.")
                 sys.exit(1)
+
+        Original_CoA_Path = str(self.file_path)  # Original CoA Path — plain text string
+        # Push into Spyder/IPython Variable Explorer so it is visible after the run
+        try:
+            get_ipython().user_ns["Original_CoA_Path"] = Original_CoA_Path
+        except (NameError, AttributeError):
+            pass  # Not running in IPython — skip silently
+
+        # Create the working copy — all reads and writes use this file, not the original
+        Modified_CoA_Path = self._copy_and_name_modified_file(Original_CoA_Path)  # Modified CoA Path
+        self.file_path = Modified_CoA_Path  # Redirect all downstream I/O to the copy
 
         # Prompt for optional external FERC reference file
         if self.ferc_ref_path is None:
