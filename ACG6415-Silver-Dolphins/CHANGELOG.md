@@ -4,7 +4,7 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
-## [0.1a] — 2026-03-04
+## [0.1b] — 2026-03-04
 
 ### Changed
 
@@ -14,7 +14,7 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
-## [1.0a] — 2026-03-04
+## [0.1a] — 2026-03-04
 
 ### Added
 
@@ -26,7 +26,7 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
-## [1.0] — 2026-03-03
+## [0.1] — 2026-03-03
 
 ### Added
 
