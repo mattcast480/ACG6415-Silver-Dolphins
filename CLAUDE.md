@@ -17,6 +17,7 @@ This repository is in early initialization — no source files have been committ
 - Maintain a CHANGELOG.md file
 - Present options and ask clarifying questions - do not automate all decisions
 - Use descriptive names for all functions and variables
+- When pushing to GitHub, always run git pull origin master before git push to avoid sync conflicts.
 ## Architecture
 
 *(Add high-level architecture notes here once the codebase exists.)*
