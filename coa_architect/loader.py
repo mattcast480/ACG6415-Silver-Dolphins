@@ -242,6 +242,67 @@ class CoALoader:
 
         return result
 
+    def _parse_business_unit_sheet(self, worksheet) -> dict:
+        """
+        Parses the Business Unit reference sheet, which uses a non-standard layout:
+        a variable-length header section is followed by a table whose columns are
+        identified by a header row containing 'Business Unit Number'.
+
+        Scans each row looking for the header row (any cell whose text contains
+        'business unit number', case-insensitive).  Once found, records which
+        column holds the BU number and which holds the description, then reads
+        all subsequent data rows.
+
+        Returns {bu_number_str: description_str}.
+        Falls back to the generic parser (col A = code, col B = desc) if the
+        expected header row is not found.
+        """
+        bu_col_idx = None    # 0-based index of the BU number column
+        desc_col_idx = None  # 0-based index of the description column
+        data_min_row = None  # 1-based row number where data begins
+
+        # --- Pass 1: find the header row ---
+        for row in worksheet.iter_rows():
+            for i, cell in enumerate(row):
+                cell_text = str(cell.value).strip().lower() if cell.value else ""
+                if "business unit number" in cell_text or cell_text in ("bu number", "bu code"):
+                    bu_col_idx = i
+                if "description" in cell_text and bu_col_idx is not None:
+                    desc_col_idx = i
+
+            if bu_col_idx is not None:
+                # Data starts on the row after this header row
+                data_min_row = row[0].row + 1
+                break
+
+        # Fallback if no recognised header is found
+        if bu_col_idx is None:
+            return self.parse_reference_sheet_as_lookup(worksheet, "A", "B", skip_rows=1)
+
+        # --- Pass 2: read data rows ---
+        result = {}
+        for row in worksheet.iter_rows(min_row=data_min_row):
+            cells = list(row)
+            if bu_col_idx >= len(cells):
+                continue
+
+            bu_cell = cells[bu_col_idx]
+            if bu_cell.value is None:
+                continue
+
+            bu_code = str(bu_cell.value).strip()
+            if not bu_code:
+                continue
+
+            desc = ""
+            if desc_col_idx is not None and desc_col_idx < len(cells):
+                desc_cell = cells[desc_col_idx]
+                desc = str(desc_cell.value).strip() if desc_cell.value else ""
+
+            result[bu_code] = desc
+
+        return result
+
     def _find_sheet(self, workbook: openpyxl.Workbook, name_candidates: list):
         """
         Finds a worksheet by checking each name in name_candidates
@@ -275,7 +336,9 @@ class CoALoader:
             posting_edit_codes=load_ref("posting_edit_codes"),
             book_tax_codes=load_ref("book_tax_codes"),
             companies=load_ref("companies"),
-            business_units=load_ref("business_units"),
+            business_units=self._parse_business_unit_sheet(
+                self._find_sheet(workbook, REFERENCE_SHEET_NAMES["business_units"])
+            ) if self._find_sheet(workbook, REFERENCE_SHEET_NAMES["business_units"]) else {},
         )
 
     def load_chart_of_accounts(self, file_path: str):

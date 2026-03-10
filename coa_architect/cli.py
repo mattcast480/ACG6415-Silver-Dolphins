@@ -21,6 +21,7 @@ Session flow:
 import os
 import shutil
 import sys
+from collections import Counter
 from typing import Optional
 
 from .models import Account, AccountHierarchy, NewAccountProposal
@@ -211,7 +212,19 @@ class CoAArchitectCLI:
         Modified_CoA_Path = self._copy_and_name_modified_file(Original_CoA_Path)  # Modified CoA Path
         self.file_path = Modified_CoA_Path  # Redirect all downstream I/O to the copy
 
-        # Prompt for optional external FERC reference file
+        # Auto-detect the bundled FERC reference CSV if it exists alongside the app.
+        # The CSV lives at resources/ferc_uniform_system.csv relative to the repo root.
+        # We look for it relative to this source file (coa_architect/cli.py → ../resources/).
+        _module_dir = os.path.dirname(os.path.abspath(__file__))
+        _default_ferc_csv = os.path.join(_module_dir, "..", "resources", "ferc_uniform_system.csv")
+        _default_ferc_csv = os.path.normpath(_default_ferc_csv)
+
+        if self.ferc_ref_path is None and os.path.exists(_default_ferc_csv):
+            # Silently pre-load the bundled CSV; the user can still override via --ferc-ref
+            self.ferc_ref_path = _default_ferc_csv
+            print(f"Auto-detected FERC reference: {_default_ferc_csv}")
+
+        # If no auto-detected file was found, offer to load one manually
         if self.ferc_ref_path is None:
             load_ferc = self._ask_yes_no(
                 "Load an external FERC reference file? (optional)", default=False
@@ -270,8 +283,6 @@ class CoAArchitectCLI:
 
     def _show_hierarchy_summary(self) -> None:
         """Displays a summary table: level counts and section breakdown."""
-        from collections import Counter
-
         accounts = self.hierarchy.accounts
         level_counts = Counter(a.line_of_detail for a in accounts)
 
@@ -324,8 +335,21 @@ class CoAArchitectCLI:
 
         proposal = NewAccountProposal(account_description=description)
 
-        # b. Select parent account
-        parent = self._select_parent(description, proposal)
+        # b. Select business unit — infers and confirms company + BU type
+        bu_code, company_code, bu_type = self._select_business_unit()
+        if bu_code is None:
+            return None
+
+        # Store confirmed BU fields on the proposal now, before parent scoring
+        proposal.business_unit = bu_code
+        proposal.company = company_code
+        proposal.bu_type = bu_type
+        proposal.reasoning["business_unit"] = f"Selected by user: {bu_code}"
+        proposal.reasoning["company"] = f"Matched from BU {bu_code}, confirmed by user"
+        proposal.reasoning["bu_type"] = f"Matched from BU {bu_code}, confirmed by user"
+
+        # c. Select parent account — pass bu_type for stronger scoring
+        parent = self._select_parent(description, proposal, bu_type=bu_type)
         if parent is None:
             return None
         proposal.suggested_parent = parent
@@ -333,22 +357,22 @@ class CoAArchitectCLI:
         # Populate account_description from input if not set
         proposal.account_description = proposal.account_description or description
 
-        # c. Select account number
+        # d. Select account number
         number = self._select_account_number(parent, proposal)
         if number is None:
             return None
         proposal.account_number = number
 
-        # d. Auto-suggest all fields, then confirm each one
+        # e. Auto-suggest all fields, then confirm each one
         print("Generating suggestions...")
         self._suggester.suggest_all(proposal, self.hierarchy)
 
         proposal = self._confirm_fields(proposal)
 
-        # e. Show final summary
+        # f. Show final summary
         self._show_final_proposal(proposal)
 
-        # f. Confirm and export to file
+        # g. Confirm and export to file
         confirmed = self._ask_yes_no("Add to CoA and save?", default=True)
 
         if confirmed:
@@ -365,13 +389,16 @@ class CoAArchitectCLI:
             return None
 
     def _select_parent(
-        self, description: str, proposal: NewAccountProposal
+        self, description: str, proposal: NewAccountProposal,
+        bu_type: Optional[str] = None,
     ) -> Optional[Account]:
         """
         Scores all Level 1–4 accounts and presents the top 5 for selection.
         Returns the chosen parent Account, or None if user cancels.
         """
-        scored = self._placer.score_parent_candidates(description, self.hierarchy)
+        scored = self._placer.score_parent_candidates(
+            description, self.hierarchy, bu_type=bu_type
+        )
 
         if not scored:
             print("No eligible parent accounts found.")
@@ -490,27 +517,45 @@ class CoAArchitectCLI:
             "Derived from your plain-English input.",
         )
 
-        # Company
-        proposal.company = self._confirm_text_field(
-            "Company",
-            proposal.company,
-            proposal.reasoning.get("company", ""),
-        )
+        # Company — already confirmed if set during BU selection
+        if proposal.company is None:
+            proposal.company = self._confirm_text_field(
+                "Company",
+                proposal.company,
+                proposal.reasoning.get("company", ""),
+            )
+        else:
+            desc = self.hierarchy.reference_data.companies.get(proposal.company, "")
+            label = proposal.company + (f" — {desc}" if desc else "")
+            print(f"\n  Company: {label}  (confirmed earlier)")
 
-        # Business Unit
-        proposal.business_unit = self._confirm_text_field(
-            "Business Unit",
-            proposal.business_unit,
-            proposal.reasoning.get("business_unit", ""),
-        )
+        # Business Unit — already confirmed if set during BU selection
+        if proposal.business_unit is None:
+            proposal.business_unit = self._confirm_text_field(
+                "Business Unit",
+                proposal.business_unit,
+                proposal.reasoning.get("business_unit", ""),
+            )
+        else:
+            desc = self.hierarchy.reference_data.business_units.get(
+                proposal.business_unit, ""
+            )
+            label = proposal.business_unit + (f" — {desc}" if desc else "")
+            print(f"\n  Business Unit: {label}  (confirmed earlier)")
 
-        # BU Type — fixed choices only
-        proposal.bu_type = self._confirm_choice_field(
-            "BU Type",
-            proposal.bu_type,
-            ["BS", "IS"],
-            proposal.reasoning.get("bu_type", ""),
-        )
+        # BU Type — already confirmed if set during BU selection
+        if proposal.bu_type is None:
+            proposal.bu_type = self._confirm_choice_field(
+                "BU Type",
+                proposal.bu_type,
+                ["BS", "IS"],
+                proposal.reasoning.get("bu_type", ""),
+            )
+        else:
+            type_name = {
+                "BS": "Balance Sheet", "IS": "Income Statement"
+            }.get(proposal.bu_type, proposal.bu_type)
+            print(f"\n  BU Type: {proposal.bu_type} ({type_name})  (confirmed earlier)")
 
         # Posting Edit — usually blank for Level-5 posting accounts
         proposal.posting_edit = self._confirm_text_field(
@@ -729,3 +774,104 @@ class CoAArchitectCLI:
                 return node
             node = node.parent
         return None
+
+    def _infer_bu_attributes_from_accounts(
+        self, bu_code: str
+    ) -> tuple:
+        """
+        Scans existing accounts to find which company and BU type
+        co-occur with the given business unit code.
+        Returns (company_code, bu_type) — either may be None.
+        """
+        matching = [
+            a for a in self.hierarchy.accounts
+            if a.business_unit == bu_code
+        ]
+        if not matching:
+            return None, None
+
+        company_counts = Counter(a.company for a in matching if a.company)
+        inferred_company = (
+            company_counts.most_common(1)[0][0] if company_counts else None
+        )
+        bu_type_counts = Counter(a.bu_type for a in matching if a.bu_type)
+        inferred_bu_type = (
+            bu_type_counts.most_common(1)[0][0] if bu_type_counts else None
+        )
+        return inferred_company, inferred_bu_type
+
+    def _confirm_inferred_company(
+        self, bu_code: str, inferred_company: Optional[str]
+    ) -> Optional[str]:
+        """
+        Shows the company inferred for the selected BU and asks user to confirm.
+        Falls back to manual selection if user declines or no inference available.
+        """
+        ref = self.hierarchy.reference_data
+        if inferred_company:
+            desc = ref.companies.get(inferred_company, "")
+            label = inferred_company + (f" — {desc}" if desc else "")
+            print(f"\n  Company matched from BU {bu_code}: {label}")
+            if self._ask_yes_no("  Use this company?", default=True):
+                return inferred_company
+
+        # Fallback: manual selection from reference list
+        print("  Select company manually:")
+        company_choices = [
+            (f"{code} — {desc}", code)
+            for code, desc in sorted(ref.companies.items())
+        ]
+        if not company_choices:
+            raw = input("  Enter company code (or blank to skip): ").strip()
+            return raw if raw else None
+        return self._pick("Company", company_choices, allow_cancel=True)
+
+    def _confirm_inferred_bu_type(
+        self, bu_code: str, inferred_bu_type: Optional[str]
+    ) -> Optional[str]:
+        """
+        Shows the BU type (BS/IS) inferred for the selected BU and asks user to confirm.
+        Falls back to manual choice if user declines or no inference available.
+        """
+        if inferred_bu_type:
+            type_name = {
+                "BS": "Balance Sheet", "IS": "Income Statement"
+            }.get(inferred_bu_type, inferred_bu_type)
+            print(
+                f"\n  BU Type matched from BU {bu_code}: "
+                f"{inferred_bu_type} ({type_name})"
+            )
+            if self._ask_yes_no("  Use this BU type?", default=True):
+                return inferred_bu_type
+
+        # Fallback: manual choice
+        print("  Select BU type manually:")
+        choices = [("BS — Balance Sheet", "BS"), ("IS — Income Statement", "IS")]
+        return self._pick("BU Type", choices, allow_cancel=False)
+
+    def _select_business_unit(self) -> tuple:
+        """
+        Prompts user to pick a Business Unit, then infers and confirms
+        the associated company and BU type from existing accounts.
+        Returns (bu_code, company_code, bu_type).
+        Returns (None, None, None) if the user cancels.
+        """
+        ref = self.hierarchy.reference_data
+        bu_choices = [
+            (f"{code} — {desc}", code)
+            for code, desc in sorted(ref.business_units.items())
+        ]
+        if not bu_choices:
+            print("  No business units found in reference data.")
+            return None, None, None
+
+        print("\nSelect Business Unit:")
+        bu_code = self._pick("Business Unit", bu_choices, allow_cancel=True)
+        if bu_code is None:
+            return None, None, None
+
+        inferred_company, inferred_bu_type = self._infer_bu_attributes_from_accounts(bu_code)
+        confirmed_company = self._confirm_inferred_company(bu_code, inferred_company)
+        confirmed_bu_type = self._confirm_inferred_bu_type(bu_code, inferred_bu_type)
+
+        return bu_code, confirmed_company, confirmed_bu_type

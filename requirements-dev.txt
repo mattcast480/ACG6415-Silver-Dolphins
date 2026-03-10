@@ -1,0 +1,7 @@
+# Development-only dependencies — NOT required to run the app.
+# Install with:  pip install -r requirements-dev.txt
+
+# PDF text extraction — used ONCE by tools/extract_ferc_pdf.py to produce
+# resources/ferc_uniform_system.csv from the 18 CFR Part 101 source PDF.
+# After the CSV is generated and committed, pdfplumber is no longer needed.
+pdfplumber>=0.10.0

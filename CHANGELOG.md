@@ -4,6 +4,41 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.1c] — 2026-03-09
+
+### Added
+
+- **`tools/extract_ferc_pdf.py`** — One-time utility script that uses `pdfplumber` to extract
+  FERC account codes and descriptions from `resources/18 CFR Part 101 (up to date as of 3-06-2026).pdf`
+  and writes them to `resources/ferc_uniform_system.csv`. Run once offline; the resulting CSV is
+  committed and loaded by the app at runtime.
+- **`requirements-dev.txt`** — Dev-only dependency file. Adds `pdfplumber>=0.10.0` for use with
+  `tools/extract_ferc_pdf.py`. Not required to run the application.
+
+### Changed
+
+- **`coa_architect/cli.py`** — Added auto-detect logic: on startup, if
+  `resources/ferc_uniform_system.csv` is present alongside the app, it is loaded automatically
+  without requiring the `--ferc-ref` CLI flag. Falls through to the manual prompt only when the
+  file is absent.
+- **`coa_architect/loader.py`** — Added `_parse_business_unit_sheet()`: a dedicated parser for
+  the Business Unit reference sheet, which uses a variable-length header section rather than a
+  fixed layout. Scans for the header row containing "Business Unit Number", then reads subsequent
+  data rows using the detected column positions. Falls back to the generic parser if no recognised
+  header is found. Updated `load_references()` to call this method instead of the generic
+  `load_ref("business_units")`.
+- **`coa_architect/placer.py`** — Added optional `bu_type` parameter to
+  `score_parent_candidates()` and `_score_candidate()`. When `bu_type` is known (IS or BS),
+  candidates are hard-filtered to matching accounts before scoring, and BU type consistency points
+  use an exact match instead of the majority-heuristic fallback. No behaviour change when
+  `bu_type` is `None`.
+- **`coa_architect/suggester.py`** — Fixed indentation bug in `fill_defaults()`: reasoning
+  entries for `bu_type`, `company`, and `business_unit` were being overwritten even when the
+  proposal already carried a user-supplied value. Reasoning is now recorded only when the
+  suggested value is also newly assigned.
+
+---
+
 ## [0.1b] — 2026-03-04
 
 ### Changed

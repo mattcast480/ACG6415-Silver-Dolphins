@@ -360,19 +360,25 @@ class CategorySuggester:
         bu_type, bu_reasoning = self.suggest_bu_type(proposal, parent)
         if proposal.bu_type is None:
             proposal.bu_type = bu_type
-        proposal.reasoning["bu_type"] = bu_reasoning
+            proposal.reasoning["bu_type"] = bu_reasoning
+        elif "bu_type" not in proposal.reasoning:
+            proposal.reasoning["bu_type"] = bu_reasoning
 
         # Company — use most common
         company, co_reasoning = self.suggest_company(proposal, hierarchy)
         if proposal.company is None:
             proposal.company = company
-        proposal.reasoning["company"] = co_reasoning
+            proposal.reasoning["company"] = co_reasoning
+        elif "company" not in proposal.reasoning:
+            proposal.reasoning["company"] = co_reasoning
 
         # Business unit — inherit from parent
         bu, bu_unit_reasoning = self.suggest_business_unit(proposal, parent, hierarchy)
         if proposal.business_unit is None:
             proposal.business_unit = bu
-        proposal.reasoning["business_unit"] = bu_unit_reasoning
+            proposal.reasoning["business_unit"] = bu_unit_reasoning
+        elif "business_unit" not in proposal.reasoning:
+            proposal.reasoning["business_unit"] = bu_unit_reasoning
 
         # Posting edit — always blank for L5
         pe_code, pe_reasoning = self.suggest_posting_edit(proposal, target_level=5)

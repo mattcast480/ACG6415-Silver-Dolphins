@@ -15,7 +15,7 @@ Two responsibilities:
 import math
 import re
 from collections import Counter
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .models import Account, AccountHierarchy, AccountRange
 from .validator import AccountValidator
@@ -42,7 +42,8 @@ class AccountPlacer:
     # ------------------------------------------------------------------
 
     def score_parent_candidates(
-        self, user_description: str, hierarchy: AccountHierarchy
+        self, user_description: str, hierarchy: AccountHierarchy,
+        bu_type: Optional[str] = None,
     ) -> List[Tuple[float, Account]]:
         """
         Ranks all Level 1–4 accounts by relevance to the user's description.
@@ -60,11 +61,18 @@ class AccountPlacer:
         Returns a list of (score, Account) sorted descending by score.
         """
         user_keywords = self._tokenize(user_description)
-        candidates = [a for a in hierarchy.accounts if a.line_of_detail < 5]
+        # Hard-filter by BU type when known: IS entries only consider IS accounts,
+        # BS entries only consider BS accounts.  When bu_type is unknown (None),
+        # no filter is applied and all structural-level accounts remain as candidates.
+        candidates = [
+            a for a in hierarchy.accounts
+            if a.line_of_detail < 5
+            and (bu_type is None or not a.bu_type or a.bu_type == bu_type)
+        ]
 
         scored = []
         for account in candidates:
-            score = self._score_candidate(account, user_keywords, hierarchy)
+            score = self._score_candidate(account, user_keywords, hierarchy, bu_type=bu_type)
             scored.append((score, account))
 
         # Sort descending by score, then by account_number for tie-breaking
@@ -76,6 +84,7 @@ class AccountPlacer:
         account: Account,
         user_keywords: set,
         hierarchy: AccountHierarchy,
+        bu_type=None,
     ) -> float:
         """Computes the total score for a single parent candidate."""
         score = 0.0
@@ -96,11 +105,15 @@ class AccountPlacer:
                     score += 3  # Substring bonus (caps at W_KEYWORD naturally)
 
         # --- BU type consistency (20 pts) ---
-        # Award full points if the account's BU type matches the majority BU type
-        # among all accounts in the CoA (or within the same section)
-        majority_bu_type = self._majority_bu_type(hierarchy)
-        if account.bu_type and account.bu_type == majority_bu_type:
-            score += W_BU_TYPE
+        # If the user's BU type is known, use exact match (strong signal).
+        # Otherwise fall back to global-majority heuristic (original behaviour).
+        if bu_type is not None:
+            if account.bu_type and account.bu_type == bu_type:
+                score += W_BU_TYPE
+        else:
+            majority_bu_type = self._majority_bu_type(hierarchy)
+            if account.bu_type and account.bu_type == majority_bu_type:
+                score += W_BU_TYPE
 
         # --- FERC consistency (20 pts) ---
         # Award points based on how consistently this section uses FERC codes
