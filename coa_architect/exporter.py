@@ -4,7 +4,7 @@ exporter.py — Writes the updated Chart of Accounts back to Excel.
 CoAExporter handles:
   - Finding the correct row position for the new account (after last sibling)
   - Inserting a new row while preserving formatting
-  - Re-sequencing the Account ID column (col A)
+  - Assigning the new account a max+1 Account ID (col A)
   - Creating a timestamped backup before saving
   - Returning the saved file path for confirmation display
 
@@ -227,15 +227,11 @@ class CoAExporter:
         """
         Main export entry point.
 
-        Inserts the new account row, re-sequences IDs, and saves the file.
+        Inserts the new account row (assigning max+1 Account ID) and saves the file.
         Returns the path to the saved file.
         """
         # Insert the row into the workbook
         self.insert_account_row(workbook, proposal, hierarchy)
-
-        # Re-sequence account IDs in column A
-        worksheet = workbook.worksheets[0]
-        self.update_account_id_sequence(worksheet, hierarchy.column_mapping)
 
         # Save with backup
         saved_path = self.save_workbook(workbook, hierarchy.source_file_path)

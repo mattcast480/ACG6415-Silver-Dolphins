@@ -189,35 +189,39 @@ class TestSuggestFercCode:
         # Should get at least sibling-based suggestion
         assert len(suggestions) > 0
 
-    def test_external_ferc_codes_labeled_differently(
-        self, suggester, accounts_with_hierarchy, reference_data
+    def test_advisory_context_ferc_codes_labeled_differently(
+        self, suggester, accounts_with_hierarchy
     ):
         """
-        External FERC codes should be labeled 'From external reference file'.
-        We simulate this by adding an external code and checking the explanation.
+        FERC codes surfaced via advisory context should be labeled 'From advisory reference'.
+        We simulate this by adding an advisory context entry and checking the explanation.
+        The advisory code must also exist in ferc_codes (workbook is authoritative).
         """
         hierarchy = accounts_with_hierarchy
-        # Add an external FERC code not already in the CoA
-        external_code = "999"
-        hierarchy.reference_data.ferc_codes[external_code] = "Test external turbine code"
-        hierarchy.reference_data.external_ferc_codes.add(external_code)
+        advisory_code = "999"
+        # The code must exist in the workbook's ferc_codes for it to be suggested
+        hierarchy.reference_data.ferc_codes[advisory_code] = "Test turbine code"
+        # Provide a richer description in advisory context
+        hierarchy.advisory_context["FERC Code"] = {
+            advisory_code: "Advisory turbine generator description"
+        }
 
         parent = hierarchy.accounts_by_number[102000]
         proposal = NewAccountProposal(
-            account_description="turbine external test",
+            account_description="turbine advisory test",
             suggested_parent=parent,
         )
 
         suggestions = suggester.suggest_ferc_code(proposal, hierarchy)
-        ext_suggestions = [
+        adv_suggestions = [
             (c, conf, e) for c, conf, e in suggestions
-            if c == external_code
+            if c == advisory_code
         ]
 
-        if ext_suggestions:
-            _, _, expl = ext_suggestions[0]
-            assert "external" in expl.lower(), (
-                f"External code explanation should mention 'external', got: {expl}"
+        if adv_suggestions:
+            _, _, expl = adv_suggestions[0]
+            assert "advisory" in expl.lower(), (
+                f"Advisory code explanation should mention 'advisory', got: {expl}"
             )
 
     def test_returns_list_of_tuples(self, suggester, accounts_with_hierarchy):

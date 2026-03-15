@@ -5,10 +5,11 @@ CoALoader handles:
   - Column auto-detection (handles minor header-name variations)
   - Parsing of the main accounts worksheet into Account dataclass instances
   - Loading all reference sheets (FERC codes, asset life, cash flow, etc.)
-  - Optionally merging an external FERC reference CSV or Excel file
+
+Advisory reference files (1.code_tables/) are handled by code_table_loader.py,
+not here.  This module only reads the CoA workbook itself.
 """
 
-import csv
 import os
 from typing import Optional
 
@@ -363,83 +364,3 @@ class CoALoader:
 
         return accounts, reference_data, column_mapping, workbook
 
-    def load_external_ferc_file(self, file_path: str) -> dict:
-        """
-        Loads additional FERC codes from a user-supplied CSV or Excel file.
-
-        The file must have columns named 'Code' and 'Description' (case-insensitive).
-        Returns {code_str: description_str}.
-        This dict is merged into ReferenceData.ferc_codes by the caller,
-        with CoA-embedded codes taking precedence over external ones.
-        """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"External FERC file not found: {file_path}")
-
-        ext = os.path.splitext(file_path)[1].lower()
-
-        if ext == ".csv":
-            return self._load_ferc_from_csv(file_path)
-        elif ext in (".xlsx", ".xls", ".xlsm"):
-            return self._load_ferc_from_excel(file_path)
-        else:
-            raise ValueError(
-                f"Unsupported external FERC file format: '{ext}'. "
-                "Expected .csv or .xlsx"
-            )
-
-    def _load_ferc_from_csv(self, file_path: str) -> dict:
-        """Reads FERC codes from a CSV file with 'Code' and 'Description' columns."""
-        result = {}
-        with open(file_path, newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            # Normalize header names to lowercase for matching
-            fieldnames_lower = {k.lower(): k for k in (reader.fieldnames or [])}
-            code_key = fieldnames_lower.get("code")
-            desc_key = fieldnames_lower.get("description")
-
-            if code_key is None:
-                raise ValueError(
-                    f"External FERC CSV '{file_path}' must have a 'Code' column."
-                )
-
-            for row in reader:
-                code = str(row.get(code_key, "")).strip()
-                desc = str(row.get(desc_key, "")).strip() if desc_key else ""
-                if code:
-                    result[code] = desc
-
-        return result
-
-    def _load_ferc_from_excel(self, file_path: str) -> dict:
-        """Reads FERC codes from an Excel file with 'Code' and 'Description' columns."""
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        ws = wb.worksheets[0]
-
-        # Find Code and Description columns from the header row
-        header = {}
-        for cell in ws[1]:
-            if cell.value:
-                header[str(cell.value).strip().lower()] = cell.column_letter
-
-        code_col = header.get("code")
-        desc_col = header.get("description")
-
-        if code_col is None:
-            raise ValueError(
-                f"External FERC Excel '{file_path}' must have a 'Code' column."
-            )
-
-        result = {}
-        for row in ws.iter_rows(min_row=2):
-            row_dict = {cell.column_letter: cell for cell in row}
-            code_cell = row_dict.get(code_col)
-            if code_cell is None or code_cell.value is None:
-                continue
-            code = str(code_cell.value).strip()
-            desc = ""
-            if desc_col and row_dict.get(desc_col) and row_dict[desc_col].value:
-                desc = str(row_dict[desc_col].value).strip()
-            if code:
-                result[code] = desc
-
-        return result

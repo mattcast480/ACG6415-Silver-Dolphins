@@ -133,19 +133,24 @@ class CategorySuggester:
                             )
                             suggestions[str(code)] = (pct, explanation)
 
-        # --- Source 4: External reference codes (lower confidence) ---
-        external_codes = hierarchy.reference_data.external_ferc_codes
-        if external_codes and desc_keywords:
-            for ext_code in external_codes:
-                if ext_code not in suggestions:
-                    # Only suggest if the code description has keyword overlap
-                    ext_desc = hierarchy.reference_data.ferc_codes.get(ext_code, "")
-                    ext_keywords = set(re.findall(r"[a-zA-Z]{3,}", ext_desc.lower()))
-                    if desc_keywords & ext_keywords:
-                        suggestions[ext_code] = (
-                            25,
-                            f"From external reference file — FERC {ext_code}: {ext_desc}",
-                        )
+        # --- Source 4: Advisory context (richer FERC code descriptions) ---
+        # The advisory context dict maps code → richer description text from an
+        # external reference (e.g., 18 CFR Part 101 PDF in 1.code_tables/).
+        # We only suggest codes that already exist in the workbook's ferc_codes tab;
+        # codes present only in the advisory file are silently ignored.
+        advisory_ferc = hierarchy.advisory_context.get("FERC Code", {})
+        if isinstance(advisory_ferc, dict) and desc_keywords:
+            for adv_code, adv_desc in advisory_ferc.items():
+                if adv_code in suggestions:
+                    continue  # Already suggested with higher confidence
+                if adv_code not in hierarchy.reference_data.ferc_codes:
+                    continue  # Code not in workbook — do not suggest
+                adv_keywords = set(re.findall(r"[a-zA-Z]{3,}", adv_desc.lower()))
+                if desc_keywords & adv_keywords:
+                    suggestions[adv_code] = (
+                        30,
+                        f"From advisory reference — FERC {adv_code}: {adv_desc}",
+                    )
 
         # Sort by confidence descending, return top 5
         sorted_suggestions = sorted(
@@ -178,6 +183,26 @@ class CategorySuggester:
                     explanation = f"Keyword '{kw}' suggests {label} ({months} months)"
                     results.append((months, explanation))
                     break  # Only add each asset life once
+
+        # --- Advisory context: expand keyword coverage beyond ASSET_LIFE_KEYWORDS ---
+        # The advisory file for 'Asset Life' may provide richer descriptions for each
+        # asset life code (e.g., "300 — Wind turbine / generator (25 years) includes
+        # blades, nacelle, offshore installation...").  We use those descriptions to
+        # find keyword matches the hardcoded table doesn't cover.
+        advisory_life = hierarchy.advisory_context.get("Asset Life", {})
+        if isinstance(advisory_life, dict) and description:
+            desc_words = set(re.findall(r"[a-zA-Z]{3,}", description))
+            for adv_code, adv_desc in advisory_life.items():
+                if any(r[0] == adv_code for r in results):
+                    continue  # Already suggested from keyword table or sibling data
+                adv_keywords = set(re.findall(r"[a-zA-Z]{3,}", adv_desc.lower()))
+                if desc_words & adv_keywords:
+                    ref_desc = hierarchy.reference_data.asset_life_codes.get(
+                        adv_code, f"{adv_code} months"
+                    )
+                    results.append(
+                        (adv_code, f"Advisory reference suggests {adv_code} months ({ref_desc})")
+                    )
 
         # --- Sibling accounts ---
         parent = proposal.suggested_parent
@@ -239,6 +264,24 @@ class CategorySuggester:
                 code = "INV"
                 desc = hierarchy.reference_data.cash_flow_codes.get("INV", "Investing Activities")
                 suggestions.append((code, f"Balance Sheet asset account → {desc}"))
+
+        # --- Advisory context: keyword-based augmentation ---
+        # The advisory file for 'Cash Flow Category' may map codes to richer descriptions
+        # that help identify the right category for accounts not covered by the rule set above.
+        advisory_cf = hierarchy.advisory_context.get("Cash Flow Category", {})
+        if isinstance(advisory_cf, dict) and description:
+            desc_words_adv = set(re.findall(r"[a-zA-Z]{3,}", description))
+            for adv_code, adv_desc in advisory_cf.items():
+                if any(s[0] == adv_code for s in suggestions):
+                    continue  # Already suggested by rule-based logic
+                if adv_code not in hierarchy.reference_data.cash_flow_codes:
+                    continue  # Code not in workbook — do not suggest
+                adv_keywords = set(re.findall(r"[a-zA-Z]{3,}", adv_desc.lower()))
+                if desc_words_adv & adv_keywords:
+                    cf_desc = hierarchy.reference_data.cash_flow_codes.get(adv_code, adv_code)
+                    suggestions.append(
+                        (adv_code, f"Advisory reference: {adv_code} — {cf_desc}")
+                    )
 
         # Also check sibling cash flow codes
         parent = proposal.suggested_parent

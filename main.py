@@ -3,13 +3,13 @@ main.py — Entry point for CoA Architect.
 
 Usage:
     python main.py --file path/to/Silver_Dolphins_CoA.xlsx
-    python main.py --file path/to/Silver_Dolphins_CoA.xlsx --ferc-ref path/to/ferc_codes.csv
 
 Arguments:
     --file, -f       Path to the Chart of Accounts Excel file (required or prompted).
-    --ferc-ref       Optional path to an external FERC reference file (CSV or Excel).
 
 If --file is not provided, the CLI will prompt for it interactively.
+
+Note: FERC reference data is loaded automatically from the 1.code_tables/ folder.
 """
 
 import argparse
@@ -41,13 +41,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
     )
 
-    parser.add_argument(
-        "--ferc-ref",
-        metavar="PATH",
-        help="Optional external FERC reference file (CSV or Excel) with 'Code' and 'Description' columns",
-        default=None,
-    )
-
     return parser
 
 
@@ -61,7 +54,6 @@ def main() -> None:
     # Instantiate and run the CLI
     app = CoAArchitectCLI(
         file_path=args.file,
-        ferc_ref_path=args.ferc_ref,
     )
 
     try:

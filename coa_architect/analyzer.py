@@ -250,6 +250,12 @@ class CoAAnalyzer:
         # Build O(1) lookup table by account number
         accounts_by_number = {a.account_number: a for a in accounts}
 
+        # Build composite key set for (account_number, business_unit) duplicate checks.
+        # This allows the same account number to exist in different business units.
+        accounts_by_number_and_bu = {
+            (a.account_number, a.business_unit) for a in accounts
+        }
+
         # Find the highest account_id for sequence continuation
         max_account_id = max((a.account_id for a in accounts), default=0)
 
@@ -258,6 +264,7 @@ class CoAAnalyzer:
             reference_data=reference_data,
             ranges=ranges,
             accounts_by_number=accounts_by_number,
+            accounts_by_number_and_bu=accounts_by_number_and_bu,
             source_file_path=file_path,
             column_mapping=column_mapping,
             max_account_id=max_account_id,

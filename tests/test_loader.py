@@ -5,14 +5,15 @@ Tests verify:
   - Correct number of accounts loaded from the CoA workbook
   - Column E is mapped to 'account_number'
   - Reference sheets are loaded (ferc_codes, asset_life_codes, etc.)
-  - External FERC file loading (CSV and Excel formats)
   - Graceful handling of missing optional columns
+
+Advisory reference file loading (1.code_tables/) is handled by
+coa_architect.code_table_loader and tested separately.
 
 Run with: pytest tests/test_loader.py -v
 """
 
 import os
-import tempfile
 import pytest
 import openpyxl
 
@@ -209,46 +210,3 @@ class TestLoadChartOfAccounts:
         with pytest.raises(FileNotFoundError):
             loader.load_chart_of_accounts("/nonexistent/path/file.xlsx")
 
-
-# ---------------------------------------------------------------------------
-# Tests — External FERC File
-# ---------------------------------------------------------------------------
-
-class TestLoadExternalFercFile:
-    def test_load_from_csv(self, tmp_path, loader):
-        """Should load FERC codes from a CSV file."""
-        csv_file = tmp_path / "ferc.csv"
-        csv_file.write_text("Code,Description\n999,Test Code\n998,Another Code\n")
-
-        result = loader.load_external_ferc_file(str(csv_file))
-        assert "999" in result
-        assert result["999"] == "Test Code"
-
-    def test_load_from_excel(self, tmp_path, loader):
-        """Should load FERC codes from an Excel file."""
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.append(["Code", "Description"])
-        ws.append(["888", "Excel Code"])
-        path = tmp_path / "ferc.xlsx"
-        wb.save(str(path))
-
-        result = loader.load_external_ferc_file(str(path))
-        assert "888" in result
-        assert result["888"] == "Excel Code"
-
-    def test_missing_code_column_raises(self, tmp_path, loader):
-        """CSV without a 'Code' column should raise ValueError."""
-        csv_file = tmp_path / "bad.csv"
-        csv_file.write_text("Number,Label\n100,Test\n")
-
-        with pytest.raises(ValueError, match="Code"):
-            loader.load_external_ferc_file(str(csv_file))
-
-    def test_unsupported_format_raises(self, tmp_path, loader):
-        """Unsupported file formats should raise ValueError."""
-        txt_file = tmp_path / "ferc.txt"
-        txt_file.write_text("100,Test")
-
-        with pytest.raises(ValueError, match="Unsupported"):
-            loader.load_external_ferc_file(str(txt_file))

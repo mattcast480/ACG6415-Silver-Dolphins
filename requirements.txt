@@ -2,6 +2,14 @@
 # formulas when inserting new rows into the Chart of Accounts workbook.
 openpyxl>=3.1.0
 
+# PDF text extraction — used at runtime by code_table_loader.py to parse
+# text-based PDF files placed in the 1.code_tables/ advisory folder.
+pdfplumber>=0.10.0
+
 # Test runner for the unit test suite in the tests/ directory.
 # Run tests with: pytest tests/ -v
 pytest>=7.0.0
+
+# Claude API client — only called when ANTHROPIC_API_KEY environment variable is set.
+# Safe to install even if no API key is present; import is deferred until needed.
+anthropic>=0.50.0

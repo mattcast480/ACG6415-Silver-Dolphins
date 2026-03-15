@@ -65,7 +65,7 @@ def _make_accounts():
         acct(100003, "Land", 4, ferc="310"),
         acct(100500, "Land Tract A", 5, ferc="310", asset_life="0"),
         acct(100600, "Land Tract B", 5, ferc="310", asset_life="0"),
-        acct(102000, "Machinery", 4, ferc="314"),
+        acct(102000, "Machinery", 4),
         acct(103000, "Turbines", 5, ferc="314", asset_life="300"),
         acct(103100, "Generators", 5, ferc="314", asset_life="300"),
         acct(103200, "Wind Equipment", 5, ferc="315", asset_life="300"),

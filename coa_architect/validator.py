@@ -27,13 +27,17 @@ class AccountValidator:
     # ------------------------------------------------------------------
 
     def validate_account_number(
-        self, number: int, hierarchy: AccountHierarchy
+        self, number: int, hierarchy: AccountHierarchy,
+        business_unit: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
         Enforces all four safety rules for a proposed account number.
 
         Rule 1 — Must be 6 digits (100000 through 999999).
-        Rule 2 — Must not already be in use.
+        Rule 2 — Must not already be in use for the same business unit.
+                 If business_unit is provided, checks the composite key
+                 (account_number, business_unit) so the same number is
+                 allowed across different business units.
         Rule 3 — Must fall inside an owned AccountRange (no gaps).
         Rule 4 — Must not equal an existing header account's number.
         """
@@ -44,13 +48,24 @@ class AccountValidator:
                 "Must be between 100000 and 999999."
             )
 
-        # Rule 2: Already in use?
-        if number in hierarchy.accounts_by_number:
-            existing = hierarchy.accounts_by_number[number]
-            return False, (
-                f"Account number {number} is already in use: "
-                f"'{existing.account_description}' (Level {existing.line_of_detail})."
-            )
+        # Rule 2: Already in use for this business unit?
+        if business_unit is not None:
+            # Same number is allowed if the business unit differs
+            if (number, business_unit) in hierarchy.accounts_by_number_and_bu:
+                existing = hierarchy.accounts_by_number.get(number)
+                desc = existing.account_description if existing else "unknown"
+                return False, (
+                    f"Account number {number} is already in use for business unit "
+                    f"'{business_unit}': '{desc}'. Choose a different number."
+                )
+        else:
+            # No BU provided — fall back to number-only check
+            if number in hierarchy.accounts_by_number:
+                existing = hierarchy.accounts_by_number[number]
+                return False, (
+                    f"Account number {number} is already in use: "
+                    f"'{existing.account_description}' (Level {existing.line_of_detail})."
+                )
 
         # Rule 3: Falls inside an owned range?
         owning_range = self._find_owning_range(number, hierarchy)

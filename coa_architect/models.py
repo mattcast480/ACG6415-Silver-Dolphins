@@ -103,9 +103,6 @@ class ReferenceData:
     book_tax_codes: dict      # {code_str: description}
     companies: dict           # {company_str: description}
     business_units: dict      # {bu_str: description}
-    # Track which FERC codes came from an external file so the suggester
-    # can label them differently (lower confidence)
-    external_ferc_codes: set = field(default_factory=set)
 
 
 @dataclass
@@ -119,11 +116,15 @@ class AccountHierarchy:
     reference_data: ReferenceData
     ranges: list              # All AccountRange objects
     accounts_by_number: dict  # {account_number: Account} for O(1) lookup
+    accounts_by_number_and_bu: set  # set of (account_number, business_unit) tuples for composite-key duplicate checks
     source_file_path: str     # Absolute path to the source Excel file
     column_mapping: dict      # {'account_number': 'E', 'ferc_code': 'I', ...}
     max_account_id: int       # Highest account_id value; new rows start at +1
     patterns: dict = field(default_factory=dict)  # Output of detect_number_patterns
     ferc_usage_map: dict = field(default_factory=dict)  # Output of build_ferc_usage_map
+    # Advisory context loaded from 1.code_tables/ — {column_header: {code: desc} or str}
+    # Populated by cli._load_code_tables() after CoA is loaded.
+    advisory_context: dict = field(default_factory=dict)
 
 
 @dataclass

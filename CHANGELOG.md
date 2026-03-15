@@ -4,6 +4,53 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.1d] — 2026-03-14
+
+### Added
+
+- **`coa_architect/code_table_loader.py`** — New module that owns all `1.code_tables/` logic.
+  Scans the folder at startup, matches filenames (case-insensitively) to CoA column headers,
+  parses CSV / Excel / text-based PDF files, and returns an advisory context dict. Includes
+  `get_actual_column_headers()`, `scan_code_tables()`, `load_advisory_file()`, and
+  `build_advisory_context()`.
+- **`AccountHierarchy.advisory_context`** — New field (`dict`, default `{}`) on the hierarchy
+  dataclass. Stores `{column_header: {code: desc}}` content loaded from `1.code_tables/`.
+  Pushed to the IPython namespace as `advisory_context_tables` for Spyder inspection.
+
+### Changed
+
+- **`coa_architect/cli.py`** — Replaced the hardcoded FERC-only external file prompt with a
+  generalized `_load_code_tables()` method. Removed `ferc_ref_path` parameter and all FERC
+  auto-detect / manual-prompt logic. Added `_code_table_issue()` helper for fix-or-proceed menus.
+- **`coa_architect/suggester.py`** — Updated `suggest_ferc_code()` Source 4 to use
+  `hierarchy.advisory_context["FERC Code"]` (richer descriptions, only suggests codes that
+  exist in the workbook). Added advisory context augmentation to `suggest_asset_life()` and
+  `suggest_cash_flow_category()`.
+- **`coa_architect/loader.py`** — Removed `load_external_ferc_file()`, `_load_ferc_from_csv()`,
+  and `_load_ferc_from_excel()` (now handled by `code_table_loader`).
+- **`coa_architect/models.py`** — Removed `external_ferc_codes: set` from `ReferenceData`
+  (replaced by `advisory_context` on `AccountHierarchy`).
+- **`requirements.txt`** — Added `pdfplumber>=0.10.0` as a runtime dependency (moved from
+  `requirements-dev.txt`; now needed by `code_table_loader.py` at startup).
+- **`requirements-dev.txt`** — Removed `pdfplumber` (promoted to runtime dependency).
+
+### Tests
+
+- **`tests/test_loader.py`** — Removed `TestLoadExternalFercFile` (tested removed methods).
+- **`tests/test_suggester.py`** — Replaced `test_external_ferc_codes_labeled_differently` with
+  `test_advisory_context_ferc_codes_labeled_differently` to match the new advisory context API.
+- **`tests/test_analyzer.py`** — Removed stray `ferc="314"` from Level-4 "Machinery" fixture
+  header, resolving a test failure introduced during FERC refactor. All 86 tests now pass.
+- **`tests/test_description_generator.py`** — New test module for `description_generator.py`.
+
+### Notes
+
+- **Final testing pending** — A dedicated future session should run the full pytest suite
+  against the real CoA workbook to validate all changes made since v0.1. Once all tests
+  pass end-to-end, the next release will be promoted to **v0.2**.
+
+---
+
 ## [0.1c] — 2026-03-09
 
 ### Added
