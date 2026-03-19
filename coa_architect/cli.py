@@ -249,6 +249,34 @@ class CoAArchitectCLI:
         self._show_column_mapping(column_mapping)
 
     # ------------------------------------------------------------------
+    # Post-Save Reload
+    # ------------------------------------------------------------------
+
+    def _reload_after_save(self) -> None:
+        """
+        Reloads the workbook and rebuilds the hierarchy from the saved file.
+        Called after each successful account addition so that max_account_id
+        and all hierarchy data reflect the newly saved state.
+        Advisory context is preserved — no need to re-scan code tables.
+        """
+        # Preserve advisory context loaded at session start
+        advisory_context = getattr(self.hierarchy, "advisory_context", {})
+
+        # Reload workbook from the saved file
+        accounts, reference_data, column_mapping, workbook = (
+            self._loader.load_chart_of_accounts(self.file_path)
+        )
+        self.workbook = workbook
+
+        # Rebuild hierarchy from fresh data
+        self.hierarchy = self._analyzer.analyze(
+            accounts, reference_data, column_mapping, self.file_path
+        )
+
+        # Restore advisory context so code-table validation still works
+        self.hierarchy.advisory_context = advisory_context
+
+    # ------------------------------------------------------------------
     # Advisory Code Tables
     # ------------------------------------------------------------------
 
@@ -494,6 +522,7 @@ class CoAArchitectCLI:
                 f"'{proposal.account_description}' added. File saved."
             )
             print(f"Saved to: {saved_path}\n")
+            self._reload_after_save()   # Refresh hierarchy so next account gets a unique ID
             return proposal
         else:
             print("Cancelled — file not changed.\n")

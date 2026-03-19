@@ -4,6 +4,29 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.2] — 2026-03-18
+
+### Changed
+
+- **`coa_architect/placer.py`** — Reordered account number candidates in
+  `find_available_numbers_in_range()`. The near-parent 100-step scan (formerly last)
+  is now shown first (up to 3 results), so users see the earliest open space in the
+  parent range before being offered the dominant-spacing option. Dominant spacing,
+  next round-100, and next round-1000 candidates follow. No validation rules changed.
+- **`coa_architect/cli.py`** — Added `_reload_after_save()`: after each successful
+  account insertion the workbook is reloaded and the hierarchy rebuilt from the saved
+  file. This ensures `max_account_id` and sibling lists are accurate for the next
+  account added in the same session. Advisory context (code tables) is preserved
+  across reloads.
+
+### Tests
+
+- All 86 unit tests pass (`pytest tests/`). No new tests required — the ordering
+  change is covered by existing `TestFindAvailableNumbersInRange` assertions and the
+  reload logic is exercised by the manual end-to-end workflow.
+
+---
+
 ## [0.1d] — 2026-03-14
 
 ### Added
@@ -42,12 +65,6 @@ All notable changes to CoA Architect are documented here.
 - **`tests/test_analyzer.py`** — Removed stray `ferc="314"` from Level-4 "Machinery" fixture
   header, resolving a test failure introduced during FERC refactor. All 86 tests now pass.
 - **`tests/test_description_generator.py`** — New test module for `description_generator.py`.
-
-### Notes
-
-- **Final testing pending** — A dedicated future session should run the full pytest suite
-  against the real CoA workbook to validate all changes made since v0.1. Once all tests
-  pass end-to-end, the next release will be promoted to **v0.2**.
 
 ---
 

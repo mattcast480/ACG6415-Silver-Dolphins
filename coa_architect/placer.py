@@ -242,7 +242,22 @@ class AccountPlacer:
                 return
             candidates.append((number, rationale))
 
-        # Candidate A: next sequential after last sibling
+        # Candidate D (promoted to first): earliest available 100-multiples near parent header
+        # Scan from range_start upward in steps of 100. Show at most 3 before the
+        # dominant-spacing option, so the user sees the "open space" closest to the header.
+        near_parent_limit = 3
+        near_parent_count = 0
+        scan = self._ceil_to_multiple(range_start, 100)
+        while scan <= range_end and near_parent_count < near_parent_limit:
+            if scan not in used_numbers and scan != parent.account_number:
+                add_candidate(
+                    scan,
+                    f"First unused 100-step in parent range {range_start}–{range_end}"
+                )
+                near_parent_count += 1
+            scan += 100
+
+        # Candidate A (demoted): dominant spacing after last sibling
         candidate_a = last_child + dominant_step
         add_candidate(
             candidate_a,
@@ -256,14 +271,6 @@ class AccountPlacer:
         # Candidate C: next multiple of 1000 in range
         candidate_c = self._ceil_to_multiple(last_child + 1, 1000)
         add_candidate(candidate_c, "Next round thousand in range")
-
-        # Candidate D: first unused multiple of 100 in the full parent range
-        # Scan from range_start upward in steps of 100
-        scan = self._ceil_to_multiple(range_start, 100)
-        while scan <= range_end and len(candidates) < 5:
-            if scan not in used_numbers and scan != parent.account_number:
-                add_candidate(scan, f"First unused multiple of 100 in range {range_start}–{range_end}")
-            scan += 100
 
         # Limit to 5 candidates
         return candidates[:5]
