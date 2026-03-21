@@ -4,6 +4,34 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.2a] — 2026-03-21
+
+### Fixed
+
+- **`coa_architect/code_table_loader.py`** — `_load_csv()` now detects a numeric code
+  column by content when no explicit "Code" header exists. Scans each column; if ≥ 70 %
+  of non-empty values are pure integers, treats it as the code column (last match wins).
+  Builds a `{code: concatenated_text}` dict by joining all remaining columns per row,
+  concatenating multiple rows that share the same code. Result: the Asset Life CSV
+  (`Category, Account_Range, Asset_Name, Description, Asset_Life_Months`) now loads as
+  a structured dict keyed by months, enabling keyword matching in `suggest_asset_life()`.
+
+- **`coa_architect/suggester.py`** — `suggest_asset_life()` refactored so the advisory
+  context (PDF/CSV table) is the PRIMARY source, consulted first and ranked by
+  keyword-overlap count (most specific match first). The hardcoded `ASSET_LIFE_KEYWORDS`
+  table is now a FALLBACK consulted only when the advisory context produces no matches.
+  Sibling suggestion is appended rather than force-inserted at position 0, so advisory
+  and keyword results retain their rank when present.
+
+- **`coa_architect/cli.py`** — File-path input strips surrounding quote characters
+  (`.strip('"')`) so paths pasted with Windows Explorer quotes no longer crash the loader.
+
+### Tests
+
+- All 86 unit tests pass (`pytest tests/`). No new tests required.
+
+---
+
 ## [0.2] — 2026-03-18
 
 ### Changed

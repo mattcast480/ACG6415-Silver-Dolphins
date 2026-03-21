@@ -205,7 +205,7 @@ class CoAArchitectCLI:
         """
         # Prompt for CoA file path if not provided via CLI arg
         if not self.file_path:
-            self.file_path = input("\nCoA Excel file path: ").strip()
+            self.file_path = input("\nCoA Excel file path: ").strip().strip('"')
             if not self.file_path:
                 print("No file path provided. Exiting.")
                 sys.exit(1)

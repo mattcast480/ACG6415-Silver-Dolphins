@@ -174,35 +174,51 @@ class CategorySuggester:
         description = (proposal.account_description or "").lower()
         results = []
 
-        # --- Keyword-driven lookup ---
-        for keywords, months, label in ASSET_LIFE_KEYWORDS:
-            for kw in keywords:
-                if kw in description:
-                    # Retrieve the human-readable label from reference data if available
-                    ref_desc = hierarchy.reference_data.asset_life_codes.get(months, label)
-                    explanation = f"Keyword '{kw}' suggests {label} ({months} months)"
-                    results.append((months, explanation))
-                    break  # Only add each asset life once
-
-        # --- Advisory context: expand keyword coverage beyond ASSET_LIFE_KEYWORDS ---
-        # The advisory file for 'Asset Life' may provide richer descriptions for each
-        # asset life code (e.g., "300 — Wind turbine / generator (25 years) includes
-        # blades, nacelle, offshore installation...").  We use those descriptions to
-        # find keyword matches the hardcoded table doesn't cover.
+        # --- Step 1: Advisory context (PDF) — PRIMARY source ---
+        # The asset life PDF is authoritative for this organization's depreciation schedule.
+        # We check the PDF-extracted table first so it takes precedence over the hardcoded
+        # keyword table.  Each entry in advisory_life maps a month code (str) to a
+        # concatenated description of all assets assigned that life.
         advisory_life = hierarchy.advisory_context.get("Asset Life", {})
         if isinstance(advisory_life, dict) and description:
             desc_words = set(re.findall(r"[a-zA-Z]{3,}", description))
+
+            # Collect all matches with their overlap count so we can rank by specificity.
+            # Without sorting, a code like "0" (Transmission Rights) could beat "300"
+            # (Transmission Lines) simply because it appears first in the dict — even
+            # though "300" shares more words with the user's description.
+            advisory_matches = []
             for adv_code, adv_desc in advisory_life.items():
                 if any(r[0] == adv_code for r in results):
-                    continue  # Already suggested from keyword table or sibling data
+                    continue  # Already suggested (shouldn't happen here, but defensive)
                 adv_keywords = set(re.findall(r"[a-zA-Z]{3,}", adv_desc.lower()))
-                if desc_words & adv_keywords:
+                overlap = desc_words & adv_keywords
+                if overlap:
                     ref_desc = hierarchy.reference_data.asset_life_codes.get(
                         adv_code, f"{adv_code} months"
                     )
-                    results.append(
-                        (adv_code, f"Advisory reference suggests {adv_code} months ({ref_desc})")
-                    )
+                    advisory_matches.append((
+                        len(overlap),
+                        adv_code,
+                        f"Advisory reference suggests {adv_code} months ({ref_desc})"
+                    ))
+
+            # Sort descending by overlap count — most specific match comes first.
+            advisory_matches.sort(key=lambda x: -x[0])
+            for _, adv_code, explanation in advisory_matches:
+                results.append((adv_code, explanation))
+
+        # --- Step 2: Hardcoded keyword table — FALLBACK (only when PDF produced nothing) ---
+        # The keyword table is only consulted when the advisory context is empty or produced
+        # no matches.  This prevents keyword entries from overriding the authoritative PDF.
+        if not results:
+            for keywords, months, label in ASSET_LIFE_KEYWORDS:
+                for kw in keywords:
+                    if kw in description:
+                        # Retrieve the human-readable label from reference data if available
+                        ref_desc = hierarchy.reference_data.asset_life_codes.get(months, label)
+                        results.append((months, f"Keyword '{kw}' suggests {label} ({months} months)"))
+                        break  # Only add each asset life bucket once
 
         # --- Sibling accounts ---
         parent = proposal.suggested_parent
@@ -218,8 +234,9 @@ class CategorySuggester:
                     ref_desc = hierarchy.reference_data.asset_life_codes.get(
                         most_common_life, f"{most_common_life} months"
                     )
-                    results.insert(
-                        0,
+                    # Append (not insert at 0) so PDF/keyword suggestions keep top rank;
+                    # sibling is still top suggestion when no other match was found.
+                    results.append(
                         (most_common_life, f"{count} sibling(s) use {most_common_life} months ({ref_desc})")
                     )
 
