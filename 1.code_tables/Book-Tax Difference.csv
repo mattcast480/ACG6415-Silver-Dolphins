@@ -1,0 +1,10 @@
+﻿Code,Description,Notes,IRC Reference
+L274,Apply L274 to any Meals and Entertainment expense account because IRC §274 limits or disallows the tax deduction (typically 50% for meals and 0% for entertainment); Meals Expense; Entertainment Expense; Client Hospitality,,IRC §274
+L162m,Apply L162m to any executive compensation account because IRC §162(m) limits the deductible amount (generally $1 million per covered employee); Executive Salaries; Executive Bonuses; Stock-based compensation for top executives,,IRC §162(m)
+L163j,"Apply L163j to any interest expense account because IRC §163(j) may limit how much interest can be deducted, with excess carried forward; Interest Expense; Loan Interest; Bond Interest",,IRC §163(j)
+L243,Apply L243 to any dividend income from corporate equity investments because IRC §243 allows a partial deduction (typically 50%–65%); Dividend Income; Equity Investment Income,,IRC §243
+L274,"Apply L274 (general) to accounts where book and tax recognize the same item in different periods, creating a temporary timing difference; Depreciation Expense; Accrued Expenses (warranty, bonus, etc.); Deferred Revenue",Some systems use L274 broadly for general timing differences beyond Meals & Entertainment.,IRC §274 (broad application)
+T+,"Apply T+ when taxable income is higher than book income in the current period, meaning the company will get a tax benefit later; Accrued liabilities (not yet deductible for tax); Warranty expense; Pension expense",Book recognizes expense earlier than tax.,
+T-,"Apply T- when taxable income is lower than book income in the current period, meaning the company will pay more tax later; Depreciation (accelerated for tax); Amortization differences",Tax recognizes expense earlier than book.,
+P+,"Apply P+ to any expense recorded for book purposes that is not deductible for tax, permanently increasing taxable income; Fines and penalties; Certain meals/entertainment; Lobbying expenses",,
+P-,"Apply P- to any income recorded for book purposes that is not taxable, permanently decreasing taxable income; Municipal bond interest; Certain tax-exempt income; Some dividend income (if not using L243)",,

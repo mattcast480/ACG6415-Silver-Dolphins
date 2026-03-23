@@ -4,6 +4,45 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [0.2b] — 2026-03-22
+
+### Added
+
+- **`1.code_tables/Book-Tax Difference.csv`** — New advisory reference file mapping
+  9 book-tax difference codes (L274, L162m, L163j, L243, T+, T-, P+, P-) to descriptions
+  that include example account names and IRC references. Used by `suggest_book_tax_difference()`
+  at runtime.
+
+### Fixed
+
+- **`coa_architect/loader.py`** — `detect_column_mapping()` now includes a normalization
+  fallback for optional/advisory fields. After the synonym list is exhausted, each actual
+  column header is lowercased and its spaces, hyphens, and slashes are replaced with
+  underscores; if the result matches the field name the column is mapped. Example:
+  `"Book-Tax Difference"` → `"book_tax_difference"`. This means advisory files in
+  `1.code_tables/` must be named to match the exact column header text in the workbook
+  (case-insensitive), not a hardcoded synonym variant.
+
+- **`coa_architect/cli.py`** — The advisory logic check that warns `"has no advisory logic"`
+  now uses the same normalization (`re.sub(r"[\s\-/]+", "_", col_header.lower())`) instead
+  of the synonym-dependent `header_lower_to_field` lookup. Removes a false-positive warning
+  for any column whose header contains hyphens (e.g. `"Book-Tax Difference"`).
+
+### Changed
+
+- **`coa_architect/suggester.py`** — Added `suggest_book_tax_difference()`: keyword-overlap
+  scoring against the advisory CSV. Tokenizes the account description, counts matching words
+  against each code's description text, and returns the best-matching code with confidence
+  capped at 40% (book-tax requires professional judgment). Wired into `suggest_all()`,
+  replacing the former hardcoded `"Review with tax team — no automatic suggestion."` message.
+  That message is still returned as a fallback when no keyword match is found.
+
+### Tests
+
+- All 86 unit tests pass (`pytest tests/`). No new tests required.
+
+---
+
 ## [0.2a] — 2026-03-21
 
 ### Fixed

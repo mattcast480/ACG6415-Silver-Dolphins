@@ -19,6 +19,7 @@ Session flow:
 """
 
 import os
+import re
 import shutil
 import sys
 from collections import Counter
@@ -314,16 +315,8 @@ class CoAArchitectCLI:
         ws = self.workbook.worksheets[0]
         column_headers = get_actual_column_headers(ws)
 
-        # Build: actual_header_lower → internal field name
-        # Uses column_mapping (field → col_letter) and the raw header strings from row 1
-        col_to_raw_header = {
-            cell.column_letter: str(cell.value).strip()
-            for cell in ws[1] if cell.value is not None
-        }
-        header_lower_to_field = {}
-        for field, col_letter in self.hierarchy.column_mapping.items():
-            if col_letter and col_letter in col_to_raw_header:
-                header_lower_to_field[col_to_raw_header[col_letter].lower()] = field
+        # (No synonym-based mapping needed here — advisory logic check below uses
+        # normalization directly: "Book-Tax Difference" → "book_tax_difference")
 
         # Step 2: Scan folder
         matches, conflicts, unrecognized = scan_code_tables(_code_tables_dir, column_headers)
@@ -361,8 +354,11 @@ class CoAArchitectCLI:
             loaded_data[col_header] = content
             print(f"Successfully loaded {filename}")
 
-            # Warn if this column has no advisory logic in suggester.py
-            field = header_lower_to_field.get(col_header.lower())
+            # Warn if this column has no advisory logic in suggester.py.
+            # Normalize the column header to snake_case (lowercase, spaces/hyphens/slashes
+            # become underscores) and check against the known set of implemented fields.
+            # Example: "Book-Tax Difference" → "book_tax_difference" → recognized ✓
+            field = re.sub(r"[\s\-/]+", "_", col_header.lower())
             if field not in ADVISORY_LOGIC_FIELDS:
                 print(
                     f"  Note: '{col_header}' has no advisory logic — "

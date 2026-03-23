@@ -330,6 +330,63 @@ class CategorySuggester:
             return ("", "All Level-5 posting accounts use blank posting edit.")
         return ("", "Posting edit is typically blank for new accounts.")
 
+    def suggest_book_tax_difference(
+        self,
+        proposal: NewAccountProposal,
+        hierarchy: AccountHierarchy,
+    ) -> Tuple[Optional[str], int, str]:
+        """
+        Suggests a book-tax difference code using keyword matching against
+        the advisory CSV loaded from 1.code_tables/Book-Tax Difference.csv.
+
+        The CSV maps codes (e.g. L274, T+, P-) to description text that includes
+        example account names.  We tokenize both the new account's description and
+        each advisory entry, then rank by the number of overlapping keywords.
+
+        Returns (code, confidence_pct, reasoning).
+          - code: best-matching code string, or None if no match
+          - confidence_pct: capped at 40 % (book-tax is judgment-driven)
+          - reasoning: explanation shown to the user
+        """
+        # Pull the advisory context loaded from the CSV
+        advisory_btd = hierarchy.advisory_context.get("Book-Tax Difference", {})
+
+        if not isinstance(advisory_btd, dict) or not advisory_btd:
+            # No advisory file loaded — fall back to manual review message
+            return None, 0, "Review with tax team — no automatic suggestion."
+
+        description = proposal.account_description or ""
+        if not description.strip():
+            return None, 0, "Review with tax team — no automatic suggestion."
+
+        # Tokenize the account description: extract words of 3+ letters, lowercased.
+        # Short words (a, of, to…) rarely carry semantic meaning, so we skip them.
+        desc_words = set(re.findall(r"[a-zA-Z]{3,}", description.lower()))
+
+        # Score each advisory code by counting keyword overlaps with its description.
+        matches = []
+        for code, adv_desc in advisory_btd.items():
+            adv_keywords = set(re.findall(r"[a-zA-Z]{3,}", adv_desc.lower()))
+            overlap = desc_words & adv_keywords
+            if overlap:
+                matches.append((len(overlap), code, sorted(overlap)))
+
+        if not matches:
+            return None, 0, "Review with tax team — no automatic suggestion."
+
+        # Sort descending by overlap count; most specific match wins
+        matches.sort(key=lambda x: -x[0])
+        best_overlap_count, best_code, matched_words = matches[0]
+
+        # Confidence scales with overlap count but is capped at 40 %
+        # (book-tax difference requires professional judgment; we never claim certainty)
+        confidence = min(10 * best_overlap_count, 40)
+        reasoning = (
+            f"[{confidence}%] Advisory reference suggests {best_code} — "
+            f"matched keyword(s): {', '.join(matched_words)}"
+        )
+        return best_code, confidence, reasoning
+
     def suggest_bu_type(
         self,
         proposal: NewAccountProposal,
@@ -481,8 +538,11 @@ class CategorySuggester:
         else:
             proposal.reasoning["cash_flow_category"] = "No cash flow category suggested (leave blank)."
 
-        # Book-tax difference — not auto-suggested; leave for user
-        proposal.reasoning["book_tax_difference"] = "Review with tax team — no automatic suggestion."
+        # Book-tax difference — suggest using advisory CSV keyword matching
+        btd_code, _btd_conf, btd_reasoning = self.suggest_book_tax_difference(proposal, hierarchy)
+        if btd_code is not None and proposal.book_tax_difference is None:
+            proposal.book_tax_difference = btd_code
+        proposal.reasoning["book_tax_difference"] = btd_reasoning
 
         return proposal
 

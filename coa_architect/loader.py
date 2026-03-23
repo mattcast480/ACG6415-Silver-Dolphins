@@ -11,6 +11,7 @@ not here.  This module only reads the CoA workbook itself.
 """
 
 import os
+import re
 from typing import Optional
 
 import openpyxl
@@ -116,6 +117,12 @@ class CoALoader:
         # Reverse map: header_text → col_letter
         text_to_col = {v: k for k, v in header_row.items()}
 
+        # Optional fields may not appear in every workbook; required fields must be present.
+        optional_fields = {
+            "asset_life", "book_tax_difference", "cash_flow_category",
+            "posting_edit", "ferc_code",
+        }
+
         mapping = {}
         for field_name, synonyms in COLUMN_SYNONYMS.items():
             found = False
@@ -124,11 +131,23 @@ class CoALoader:
                     mapping[field_name] = text_to_col[synonym]
                     found = True
                     break
+
             if not found:
-                # Non-critical fields (asset_life, book_tax, cash_flow) may be absent
-                optional_fields = {"asset_life", "book_tax_difference", "cash_flow_category"}
+                # Normalization fallback for optional fields: convert each actual column
+                # header to snake_case (lowercase, spaces/hyphens/slashes → underscores)
+                # and check if it matches the field name directly.
+                # Example: "Book-Tax Difference" → "book_tax_difference" ✓
+                # This means files in 1.code_tables/ must match the exact column header
+                # text in the workbook — no synonym flexibility for advisory columns.
                 if field_name in optional_fields:
-                    mapping[field_name] = None  # Signal that column is absent
+                    for col_letter, raw_header in header_row.items():
+                        normalized = re.sub(r"[\s\-/]+", "_", raw_header)
+                        if normalized == field_name:
+                            mapping[field_name] = col_letter
+                            found = True
+                            break
+                    if not found:
+                        mapping[field_name] = None  # Signal that column is absent
                 else:
                     raise ValueError(
                         f"Required column '{field_name}' not found in worksheet "
