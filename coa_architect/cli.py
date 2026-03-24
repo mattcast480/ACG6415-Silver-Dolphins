@@ -237,6 +237,13 @@ class CoAArchitectCLI:
             accounts, reference_data, column_mapping, self.file_path
         )
 
+        # Push hierarchy into Spyder/IPython Variable Explorer for traceability
+        # Inspect .accounts, .patterns, .ferc_usage_map, .ranges, .column_mapping
+        try:
+            get_ipython().user_ns["account_hierarchy"] = self.hierarchy
+        except (NameError, AttributeError):
+            pass  # Not running in IPython — skip silently
+
         # Report API key status so the user knows which generator is active
         if self._api_key:
             print("API key found — account description generation enabled (claude-haiku-4-5)")
@@ -276,6 +283,12 @@ class CoAArchitectCLI:
 
         # Restore advisory context so code-table validation still works
         self.hierarchy.advisory_context = advisory_context
+
+        # Re-expose updated hierarchy to Variable Explorer after save/reload
+        try:
+            get_ipython().user_ns["account_hierarchy"] = self.hierarchy
+        except (NameError, AttributeError):
+            pass  # Not running in IPython — skip silently
 
     # ------------------------------------------------------------------
     # Advisory Code Tables
@@ -506,6 +519,13 @@ class CoAArchitectCLI:
 
         # f. Show final summary
         self._show_final_proposal(proposal)
+
+        # Push completed proposal into Variable Explorer so the suggestion reasoning
+        # chain is inspectable (inspect .reasoning for per-field confidence + source)
+        try:
+            get_ipython().user_ns["last_proposal"] = proposal
+        except (NameError, AttributeError):
+            pass  # Not running in IPython — skip silently
 
         # g. Confirm and export to file
         confirmed = self._ask_yes_no("Add to CoA and save?", default=True)

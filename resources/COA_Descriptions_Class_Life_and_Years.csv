@@ -1,0 +1,42 @@
+Category,Account_Range,Asset_Name,Description,Asset_Life_Months
+Land,100000:100999,Land,Real property owned and used for operations that is not subject to depreciation.,0
+Buildings & Structures,101000:101999,Substation Buildings,Structures that house electrical equipment used to transform and distribute power.,480
+Buildings & Structures,101000:101999,Control Centers,Facilities used to monitor and manage utility grid operations.,480
+Buildings & Structures,101000:101999,Generation Plant Buildings,Structures that contain equipment used to generate electricity.,480
+Buildings & Structures,101000:101999,Pump Stations,Facilities used to move water fuel or other resources through utility systems.,480
+Buildings & Structures,101000:101999,Cooling Towers,Structures used to dissipate heat in power generation processes.,480
+Buildings & Structures,101000:101999,Office Buildings,Administrative facilities used for corporate and operational management.,480
+Buildings & Structures,101000:101999,Warehouses,Buildings used for storage of materials equipment and supplies.,480
+Buildings & Structures,101000:101999,Retail Buildings,Facilities used for customer service or commercial operations.,480
+Buildings & Structures,101000:101999,Maintenance Shops,Facilities used for repair and maintenance of equipment.,480
+Buildings & Structures,101000:101999,Storage Facilities,Structures used to store inventory tools and operational assets.,480
+Machinery & Equipment,102000:104999,Wind Turbines,Equipment that converts wind energy into electricity.,60
+Machinery & Equipment,102000:104999,Solar Panels,Equipment that converts sunlight into electrical energy.,60
+Machinery & Equipment,102000:104999,Transformers,Devices that adjust voltage levels for efficient power transmission and distribution.,300
+Machinery & Equipment,102000:104999,Transmission Lines,Infrastructure used to transport electricity over long distances.,300
+Machinery & Equipment,102000:104999,Smart Meters,Digital devices that measure and communicate customer energy usage.,60
+Machinery & Equipment,102000:104999,Company Vehicles,Fleet vehicles used for operations maintenance and service delivery.,60
+Machinery & Equipment,102000:104999,Office Equipment,Equipment such as printers and copiers used in administrative functions.,60
+Machinery & Equipment,102000:104999,HVAC Systems,Heating ventilation and air conditioning systems used to regulate facility environments.,84
+Machinery & Equipment,102000:104999,Backup Generators,Equipment used to provide emergency power during outages.,60
+Machinery & Equipment,102000:104999,Forklifts,Material handling equipment used to move heavy goods within facilities.,84
+Licenses & Permits,110000:111999,FERC Operating License,Authorization granted to operate regulated energy facilities.,0
+Licenses & Permits,110000:111999,Environmental Permits,Approvals required to comply with environmental regulations.,0
+Licenses & Permits,110000:111999,Air Emission Permits,Permits regulating allowable air pollutant emissions.,0
+Licenses & Permits,110000:111999,Water Discharge Permits,Permits governing the release of water into the environment.,0
+Licenses & Permits,110000:111999,Transmission Rights,Rights to transmit electricity across specific networks or regions.,0
+Licenses & Permits,110000:111999,Business Operating License,General authorization to conduct business activities.,0
+Licenses & Permits,110000:111999,Building Permits,Government approvals required for construction projects.,0
+Licenses & Permits,110000:111999,Zoning Permits,Approvals ensuring land use complies with local regulations.,0
+Licenses & Permits,110000:111999,Franchise Agreements,Contracts granting rights to operate within a specific territory.,0
+Licenses & Permits,110000:111999,Trade Name Registrations,Legal rights to use and protect a business name.,0
+Software & Technology,112000:113999,SCADA System - Grid Monitoring,Software used to monitor and control utility infrastructure in real time.,60
+Software & Technology,112000:113999,Meter Data Management System,Software used to collect store and analyze meter data.,60
+Software & Technology,112000:113999,Outage Management Software,Systems used to detect and manage service interruptions.,60
+Software & Technology,112000:113999,Energy Trading Platform,Software used to buy and sell energy in wholesale markets.,60
+Software & Technology,112000:113999,GIS Mapping Software,Software used to map and manage utility infrastructure geographically.,60
+Software & Technology,112000:113999,ERP Software,Enterprise system used to manage financial and operational processes.,36
+Software & Technology,112000:113999,Payroll Software,Software used to process employee compensation and benefits.,36
+Software & Technology,112000:113999,CRM System,Software used to manage customer relationships and interactions.,36
+Software & Technology,112000:113999,Cybersecurity Software,Systems used to protect digital assets and infrastructure.,36
+Software & Technology,112000:113999,Project Management Software,Software used to plan track and manage projects.,36

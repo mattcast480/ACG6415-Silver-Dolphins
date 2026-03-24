@@ -4,6 +4,49 @@ All notable changes to CoA Architect are documented here.
 
 ---
 
+## [1.0] — 2026-03-24
+
+### Added
+
+- **`coa_architect/cli.py`** — `account_hierarchy` (the full `AccountHierarchy` object) is now
+  pushed to the IPython/Spyder Variable Explorer immediately after the hierarchy is built at
+  startup, and again after every save/reload. Allows graders and instructors to inspect
+  `.accounts`, `.patterns`, `.ferc_usage_map`, `.ranges`, and `.column_mapping` interactively.
+
+- **`coa_architect/cli.py`** — `last_proposal` (the `NewAccountProposal` object) is now pushed
+  to the Variable Explorer after the final proposal summary is displayed for each account.
+  Inspect `.reasoning` to see per-field confidence levels and suggestion sources
+  (e.g. `"[85%] 2 of 3 siblings use FERC 314 — Wind Turbines"`).
+
+- **`1.code_tables/Asset Life.csv`** — Advisory asset life reference table committed to the
+  repository so the app can load it at startup without a separate manual step.
+
+- **`1.code_tables/FERC Code.pdf`** — FERC Uniform System of Accounts reference PDF committed
+  to the repository for advisory context loading.
+
+- **`resources/`** — Additional reference documents committed: `Asset Life - tax life.pdf`,
+  `BOOK TO TAX DIFFERENCE - Explained.docx`, `COA Descriptions, Class Life and Years.pdf`,
+  `COA_Descriptions_Class_Life_and_Years.csv`, `CoA_Architect_Session_Checklist.docx`,
+  `CoA_Architect_Session_Checklist.txt`.
+
+### Fixed
+
+- **`coa_architect/cli.py`** — `VERSION` constant corrected from `"1.0"` to match actual
+  release history (`"0.2b"`), then bumped to `"1.0"` for this release. Banner was displaying
+  a future version number.
+
+### Changed
+
+- **`CLAUDE.md`** — Added session-end workflow rule: before each commit/tag, update `VERSION`
+  in `coa_architect/cli.py` to match the version tag being applied. Keeps the in-app banner
+  permanently in sync with the git tag.
+
+### Tests
+
+- All 86 unit tests pass (`pytest tests/`). No new tests required.
+
+---
+
 ## [0.2b] — 2026-03-22
 
 ### Added

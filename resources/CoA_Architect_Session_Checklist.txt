@@ -1,0 +1,26 @@
+CoA Architect
+Testing & Fix Session — Work Checklist
+Silver Dolphins  |  ACG 6415: AI in Accounting  |  Spring 2026
+??  Diagnose First
+?  1. Audit the section prediction logic  [Completed]
+Asked Claude Code to explain what data is used to predict parent section candidates. Confirmed it reads only the first worksheet and uses keyword Jaccard scoring against individual account rows — not section ranges or headers. Both BS and IS tabs confirmed not separately read.
+???  Fixes
+?  2. Fix section prediction to include both tabs  [Completed]
+Updated loader.load_chart_of_accounts() to read from both the Balance Sheet and Income Statement tabs by name. Accounts from both tabs combined into a single flat list with bu_type preserved per row.
+?  3. Fix section prediction to match against account ranges, not individual accounts  [Completed]
+Updated the matching logic to score against section-level ranges and hierarchy parents rather than surfacing individual leaf accounts as candidates.
+?  4. Add a plain-English to account description conversion step  [To Do]
+Before section prediction, add a step that converts the user's plain-English input into a concise, professional account description (e.g., 'Rental Income — Cabins'). Present to user for confirmation. Use the confirmed description — not the original input — as the basis for section matching.
+?  5. Fix the Account Description field to use the converted description  [To Do]
+When populating the Account Description column, use the professionally converted description confirmed by the user — not the original plain-English input. The field should reflect a real CoA entry, not conversational language.
+?  6. Determine PDF handling and bundling for FERC reference file  [Started — Not Tested]
+Ask Claude Code whether the app can read a PDF natively or requires conversion. Then ask about bundling the FERC Uniform System of Accounts as a startup asset rather than prompting the user at runtime.
+??  FERC Reference File
+?  7. Ask about bundling vs. prompting for FERC file  [To Do]
+After format question answered in item 6, ask whether the reference file can be bundled as a startup asset loaded automatically, and confirm the best file format and folder location.
+?  8. Obtain the FERC Uniform System of Accounts PDF  [Completed]
+Located the FERC Electric Plant Uniform System of Accounts (CFR Title 18, Part 101) from the FERC website or government document search. File in hand for FERC integration build-out.
+??  Testing
+?  9. Test duplicate account number handling  [To Do]
+Run the account creation flow using an account number that already exists in the CoA. Verify whether the application catches the duplicate and offers to create a new business unit under the existing account or suggests a different account number.
+CoA Architect  |  Silver Dolphins  |  Spring 2026

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-Active development — v0.2 released 2026-03-18. All 86 tests passing.
+Active development — v1.0 released 2026-03-24. All 86 tests passing.
 
 ## Project Overview
 
@@ -20,7 +20,7 @@ codes, asset life tables, etc.) is loaded from a `1.code_tables/` folder at star
 - **Run the app:** `python main.py --file <path_to_coa_workbook.xlsx>`
 - **Run tests:** `python -m pytest tests/`
 - At the start of every new session, automatically run `git pull origin master` to ensure local files are up to date with the GitHub remote.
-- After completing each major development milestone, ask the user: "Do you want to continue to the next task, or are you ending the session?" If the user indicates they are ending the session, remind them to commit all changes and push to GitHub, and suggest an appropriate version tag and commit message summarizing what was built during the session. Always apply a human-readable git tag matching the version number (e.g. `v0.1d`) and push it: `git tag <version> && git push origin <version>`.
+- After completing each major development milestone, ask the user: "Do you want to continue to the next task, or are you ending the session?" If the user indicates they are ending the session, remind them to commit all changes and push to GitHub, and suggest an appropriate version tag and commit message summarizing what was built during the session. Always apply a human-readable git tag matching the version number (e.g. `v0.1d`) and push it: `git tag <version> && git push origin <version>`. Before committing at session end, update `VERSION` in `coa_architect/cli.py` to match the version tag being applied (e.g. if tagging `v0.3`, set `VERSION = "0.3"`). This keeps the in-app banner in sync with the git tag.
 - Maintain a CHANGELOG.md file
 - Present options and ask clarifying questions - do not automate all decisions
 - Use descriptive names for all functions and variables
